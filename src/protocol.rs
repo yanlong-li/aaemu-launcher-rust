@@ -30,25 +30,27 @@ pub fn handle() -> Result<(), Box<dyn std::error::Error>> {
                 return Err(Error::new("协议参数无效").into());
             }
 
-            ;
+
+            let data = url.get(7..7 + 16);
+
+            if(data.is_none()){
+                return Err(Error::new("数据不完整").into());
+            }
+
             let s = url.as_str();
-
-            // let iv = s.get(7..7 + 16).expect("获取IV失败");
+            let iv = s.get(7..7 + 16).expect("获取IV失败");
             //
-            // println!("协议内容 {}", url);
-            // println!("iv {}", iv);
+            println!("协议内容 {}", url);
+            println!("iv {}", iv);
 
-            let data = "你好啊".as_bytes();
             let plaintext = b"aaaaaaaaaaaaaaaa";
-            let res = super::aes::encrypt_aes128_cbc(plaintext)?;
-            let data2 = res.as_bytes();
-            let r2 = super::aes::decrypt_aes128_cbc(data2)?;
+            // let res = super::aes::encrypt_aes128_cbc(plaintext,&iv.as_ref())?;
+            // let data2 = res.as_bytes();
+            let r2 = super::aes::decrypt_aes128_cbc((&iv).as_ref(), (&iv).as_ref())?;
 
-            println!("{}",res);
+            // println!("{}",res);
             println!("{}",r2);
 
-
-            sleep(Duration::from_secs(3));
             Ok(())
         }
     }

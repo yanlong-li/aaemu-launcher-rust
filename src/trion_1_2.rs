@@ -1,15 +1,19 @@
+use std::{env, ptr};
+use std::mem::size_of;
+use std::os::windows::process::CommandExt;
+use std::thread::sleep;
+use std::time::Duration;
+
 use rand::Rng;
 use rc4::{KeyInit, Rc4, StreamCipher};
-use std::ffi::OsStr;
-use std::mem::size_of;
-use std::os::windows::ffi::OsStrExt;
-use std::os::windows::process::CommandExt;
-use std::ptr;
 use windows::core::w;
 use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
-use windows::Win32::System::Memory::{CreateFileMappingW, MapViewOfFile, FILE_MAP_ALL_ACCESS, PAGE_READWRITE};
+use windows::Win32::System::Memory::{CreateFileMappingW, FILE_MAP_ALL_ACCESS, MapViewOfFile, PAGE_READWRITE};
 use windows::Win32::System::Threading::CreateEventW;
+use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
+
+const ARCHEAGE: &str = "\\bin32\\archeage.exe";
 
 pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let mut encryption_key = [0u8; 8];
@@ -106,16 +110,25 @@ pub(crate) fn launch(p0: usize, p1: usize) {
 
     println!("{:?}", handle_args);
 
-    let mut command = std::process::Command::new("D:\\games\\client-1.2\\bin32\\archeage.exe");
+    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+
+    let exe_path = format!("{}{}", root_path, ARCHEAGE);
+
+    if (!std::path::Path::exists(exe_path.as_ref())) {
+        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
+        return;
+    }
+
+    let mut command = std::process::Command::new(exe_path);
     command.raw_arg(handle_args);
 
     // 启动程序并等待它完成
-    let status = command.status().expect("Failed to start process");
+    let status = command.spawn().expect("Failed to start process");
 
     // 检查程序的退出状态
-    if status.success() {
+    // if status {
         println!("程序启动成功");
-    } else {
-        eprintln!("程序启动失败: {:?}", status);
-    }
+    // } else {
+    //     eprintln!("程序启动失败: {:?}", status);
+    // }
 }

@@ -27,6 +27,8 @@ rand = "0.8"
 
 openssl="*"
 
+encoding_rs = "0.8"
+
 base64 = "*"
 cipher = "0.4.4"
 [dependencies.windows]
