@@ -3,36 +3,34 @@ name = "rust_win"
 version = "0.1.0"
 edition = "2021"
 
-
-#![windows_subsystem = "windows"]
-
-[build]
-target = "x86_64-pc-windows-msvc"
-
-[profile.dev]
-link-args = ["/SUBSYSTEM:WINDOWS"]
-crate-type = ["bin"]
-
-[profile.release]
-crate-type = ["bin"]
-
-[build-dependencies]
-cc = "1.0"
-
 [dependencies]
 byteorder = "1.4.3"
 rc4 = "0.1.0"
 hex = "0.4"
 rand = "0.8"
 
-openssl="*"
-
 encoding_rs = "0.8"
 
-base64 = "*"
-cipher = "0.4.4"
+base64 = "0.22"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
 [dependencies.windows]
 version = "0.58.0"
-features = ["Win32_System_Console", "Win32_Foundation", "Win32_Security", "Win32_System_Memory", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_System_WindowsProgramming", "Win32_UI", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader"]
+features = [
+    #    "Win32_System_Console",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Memory",
+    #    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_Storage_FileSystem",
+    #    "Win32_System_WindowsProgramming",
+    #    "Win32_UI",
+    "Win32_UI_WindowsAndMessaging",
+    #    "Win32_Graphics_Gdi",
+    #    "Win32_System_LibraryLoader"
+]
 
 

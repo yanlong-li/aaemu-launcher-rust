@@ -1,9 +1,10 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 use std::thread::sleep;
 use std::time::Duration;
 use windows::core::w;
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
+
 mod trion_1_2;
 mod web_site;
 
@@ -11,9 +12,13 @@ mod regedit;
 
 mod win;
 mod protocol;
-mod aes;
+mod cipher;
+
+mod helper;
 
 const WEBSITE_URL: &str = "https://aaemu.yanlongli.com";
+
+const VERSION: u16 = 1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !regedit::detecting() {
@@ -23,16 +28,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let res = protocol::handle();
+    let protocol_result = protocol::handle();
 
-    if res.is_err() {
-        web_site::open_website(WEBSITE_URL);
-    } else {
-        let (file, event) = trion_1_2::init_ticket("test3", "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")?;
-        trion_1_2::launch(file, event);
+    match protocol_result {
+        Ok(auth_token) => {
+            if auth_token.with_launcher_version > VERSION {
+                unsafe {
+                    MessageBoxW(None, w!("当前版本太低，请更新到最新版！"), w!("版本错误"), MB_OK);
+                }
+            }
+
+            trion_1_2::launch(&auth_token);
+        }
+        Err(_) => {
+            web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
+        }
     }
-
-    println!("{:?}", res);
 
 
     // web_site::open_website(WEBSITE_URL);

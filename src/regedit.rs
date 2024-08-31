@@ -36,7 +36,7 @@ pub fn detecting() -> bool {
 
         ok = out_msg.0.contains(&root_path);
 
-        if (!ok) {
+        if !ok {
             println!("地址不匹配，重新注册")
         }
     } else {
@@ -79,7 +79,7 @@ pub fn register() -> bool {
 
     // 将输出转换为字符串
 
-    if (output.status.success()) {
+    if output.status.success() {
         let binding = output.stdout.to_vec();
         let out_msg = GBK.decode(binding.as_ref());
         println!("{:?}", out_msg);

@@ -1,8 +1,6 @@
 use std::{env, ptr};
 use std::mem::size_of;
 use std::os::windows::process::CommandExt;
-use std::thread::sleep;
-use std::time::Duration;
 
 use rand::Rng;
 use rc4::{KeyInit, Rc4, StreamCipher};
@@ -13,7 +11,10 @@ use windows::Win32::System::Memory::{CreateFileMappingW, FILE_MAP_ALL_ACCESS, Ma
 use windows::Win32::System::Threading::CreateEventW;
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
 
-const ARCHEAGE: &str = "\\bin32\\archeage.exe";
+use crate::protocol::AuthToken;
+
+const ARCHEAGE: &str = "\\archeage.exe";
+const SUB_DIR: &str = "\\bin32";
 
 pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let mut encryption_key = [0u8; 8];
@@ -36,7 +37,7 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
     };
 
     // Step 2: Define the maximum size for the file mapping
-    let mut ticket_data = format!("TFIRdGVzdA==\n<?xml version=\"1.0\" encoding=\"UTF - 8\" standalone=\"yes\"?><authTicket version=\"1.2\"><storeToken>1</storeToken><username>{}</username><password>{}</password></authTicket>", username, password).into_bytes(); // your encrypted data
+    let mut ticket_data = format!("TFIRdGVzdA==\n<?xml version=\"1.0\" encoding=\"UTF - 8\" standalone=\"yes\"?><authTicket version=\"1.2\"><storeToken>1</storeToken><client>PLAA</client><username>{}</username><password>{}</password></authTicket>", username, password).into_bytes(); // your encrypted data
 
 
     let mut rc4 = Rc4::new(&encryption_key.into());
@@ -105,30 +106,35 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
     Ok((file_map_handle.0 as usize, event_handle.0 as usize))
 }
 
-pub(crate) fn launch(p0: usize, p1: usize) {
-    let handle_args = format!("-t +auth_ip {:} -auth_port {:} -handle {:08X}:{:08X} -lang zh_cn +acpxmk", "aaemu.yanlongli.com", "1237", p0, p1);
+pub(crate) fn launch(auth_token: &AuthToken) {
+    let (p0, p1) = init_ticket(&auth_token.username, &auth_token.password).expect("初始化令牌失败");
+
+    let handle_args = format!("-t +auth_ip {:} -auth_port {:} -handle {:08X}:{:08X} -lang zh_cn +acpxmk", auth_token.server, auth_token.port, p0, p1);
 
     println!("{:?}", handle_args);
 
     let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
 
-    let exe_path = format!("{}{}", root_path, ARCHEAGE);
+    let mut exe_path = format!("{}{}", root_path, ARCHEAGE);
 
-    if (!std::path::Path::exists(exe_path.as_ref())) {
-        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
-        return;
+    if !std::path::Path::exists(exe_path.as_ref()) {
+        exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
+        if !std::path::Path::exists(exe_path.as_ref()) {
+            unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
+            return;
+        }
     }
 
     let mut command = std::process::Command::new(exe_path);
     command.raw_arg(handle_args);
 
     // 启动程序并等待它完成
-    let status = command.spawn().expect("Failed to start process");
+    let status = command.status().expect("Failed to start process");
 
     // 检查程序的退出状态
-    // if status {
+    if status.success() {
         println!("程序启动成功");
-    // } else {
-    //     eprintln!("程序启动失败: {:?}", status);
-    // }
+    } else {
+        eprintln!("程序启动失败: {:?}", status);
+    }
 }

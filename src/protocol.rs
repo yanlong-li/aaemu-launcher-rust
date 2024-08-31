@@ -1,21 +1,31 @@
-use rand::Error;
 use std::env::args;
-use std::thread::sleep;
-use std::time::Duration;
 
-struct Config {
+use base64::Engine;
+use base64::engine::general_purpose;
+use rand::Error;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct AuthToken {
+    #[serde(rename = "u")]
     pub username: String,
+    #[serde(rename = "p")]
     pub password: String,
-    pub db_key: String,
+    #[serde(rename = "s")]
     pub server: String,
+    #[serde(rename = "P")]
     pub port: u16,
+    #[serde(rename = "v")]
+    pub launcher_version: u16,
+    #[serde(rename = "mv")]
+    pub with_launcher_version: u16,
 }
 
 
-pub fn handle() -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle() -> Result<AuthToken, Box<dyn std::error::Error>> {
     let args = args();
 
-    if (args.len() < 2) {
+    if args.len() < 2 {
         return Err(Error::new("没有协议参数").into());
     }
     let args_vec: Vec<_> = args.into_iter().collect();
@@ -26,32 +36,20 @@ pub fn handle() -> Result<(), Box<dyn std::error::Error>> {
             Err(Error::new("协议参数无效").into())
         }
         Some(url) => {
-            if (!url.starts_with("plaa://")) {
+            if !url.starts_with("plaa://") {
                 return Err(Error::new("协议参数无效").into());
             }
 
+            let b64_data = url.get(7..).expect("数据不完整");
+            let data = general_purpose::STANDARD.decode(&b64_data).expect("无法解码数据");
 
-            let data = url.get(7..7 + 16);
+            let iv = data.get(0..8).expect("获取IV失败");
+            let ciphertext = data.get(8..).expect("获取数据失败");
 
-            if(data.is_none()){
-                return Err(Error::new("数据不完整").into());
-            }
-
-            let s = url.as_str();
-            let iv = s.get(7..7 + 16).expect("获取IV失败");
-            //
             println!("协议内容 {}", url);
-            println!("iv {}", iv);
-
-            let plaintext = b"aaaaaaaaaaaaaaaa";
-            // let res = super::aes::encrypt_aes128_cbc(plaintext,&iv.as_ref())?;
-            // let data2 = res.as_bytes();
-            let r2 = super::aes::decrypt_aes128_cbc((&iv).as_ref(), (&iv).as_ref())?;
-
-            // println!("{}",res);
-            println!("{}",r2);
-
-            Ok(())
+            let plaintext = super::cipher::decrypt(ciphertext, <&[u8; 8]>::try_from(iv).unwrap())?;
+            let auth_token: AuthToken = serde_json::from_slice(plaintext.as_slice()).expect("数据损坏");
+            Ok(auth_token)
         }
     }
 }
