@@ -23,9 +23,9 @@ pub fn get_reg_str() -> String {
 }
 
 pub fn detecting() -> bool {
-    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
 
     let output = Command::new("reg").arg("query").arg("HKEY_CLASSES_ROOT\\plaa\\shell\\open\\command").output().expect("查询失败");
+
 
     let mut ok = false;
 
@@ -33,8 +33,11 @@ pub fn detecting() -> bool {
         let binding = output.stdout.to_vec();
         let out_msg = GBK.decode(&*binding);
         println!("ok {:?}", out_msg.0);
+        let program = env::current_exe().expect("获取路径失败");
 
-        ok = out_msg.0.contains(&root_path);
+        let s = program.to_str().unwrap();
+
+        ok = out_msg.0.contains(&s);
 
         if !ok {
             println!("地址不匹配，重新注册")

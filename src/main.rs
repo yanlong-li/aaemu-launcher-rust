@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -16,6 +16,8 @@ mod cipher;
 
 mod helper;
 
+mod system_config;
+
 const WEBSITE_URL: &str = "https://aaemu.yanlongli.com";
 
 const VERSION: u16 = 1;
@@ -27,6 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
+
+    let _ = system_config::update();
 
     let protocol_result = protocol::handle();
 
@@ -48,6 +52,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // web_site::open_website(WEBSITE_URL);
 
-    sleep(Duration::from_secs(5));
+    // sleep(Duration::from_secs(5));
     Ok(())
 }
