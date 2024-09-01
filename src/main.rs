@@ -18,7 +18,7 @@ mod helper;
 
 mod system_config;
 
-const WEBSITE_URL: &str = "https://aaemu.yanlongli.com";
+const WEBSITE_URL: &str = "http://plaa.top";
 
 const VERSION: u16 = 1;
 
