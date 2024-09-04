@@ -17,12 +17,18 @@ mod cipher;
 mod helper;
 
 mod system_config;
+mod pak;
 
 const WEBSITE_URL: &str = "http://plaa.top";
 
 const VERSION: u16 = 1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    pak::handle();
+
+
+    return Ok(());
     if !regedit::detecting() {
         if !regedit::register() {
             unsafe { MessageBoxW(None, w!("首次安装请在文件上右键“以管理员权限运行”"), w!("发生错误"), MB_OK); }
