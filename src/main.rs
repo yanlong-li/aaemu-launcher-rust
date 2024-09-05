@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -17,10 +17,11 @@ mod cipher;
 mod helper;
 
 mod system_config;
+mod db_check;
 
-const WEBSITE_URL: &str = "http://plaa.top";
+const WEBSITE_URL: &str = "https://plaa.top";
 
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !regedit::detecting() {
@@ -29,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
+
 
     let _ = system_config::update();
 
@@ -39,7 +41,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if auth_token.with_launcher_version > VERSION {
                 unsafe {
                     MessageBoxW(None, w!("当前版本太低，请更新到最新版！"), w!("版本错误"), MB_OK);
+                    web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
+                    return Ok(());
                 }
+            }
+
+            if db_check::handle(auth_token.db_hash.as_ref()).is_err() {
+                web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
+                return Ok(());
             }
 
             trion_1_2::launch(&auth_token);

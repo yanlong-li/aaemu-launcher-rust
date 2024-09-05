@@ -19,6 +19,8 @@ pub struct AuthToken {
     pub launcher_version: u16,
     #[serde(rename = "mv")]
     pub with_launcher_version: u16,
+    #[serde(rename = "dh")]
+    pub db_hash: String,
 }
 
 

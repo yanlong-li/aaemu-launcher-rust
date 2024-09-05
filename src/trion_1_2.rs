@@ -115,15 +115,14 @@ pub(crate) fn launch(auth_token: &AuthToken) {
 
     let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
 
-    let mut exe_path = format!("{}{}", root_path, ARCHEAGE);
+    let mut exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
+
 
     if !std::path::Path::exists(exe_path.as_ref()) {
-        exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
-        if !std::path::Path::exists(exe_path.as_ref()) {
-            unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
-            return;
-        }
+        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
+        return;
     }
+
 
     let mut command = std::process::Command::new(exe_path);
     command.raw_arg(handle_args);
