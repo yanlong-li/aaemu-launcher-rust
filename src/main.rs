@@ -1,16 +1,18 @@
 // #![windows_subsystem = "windows"]
 
-use std::thread::sleep;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
-use windows::core::w;
-use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::time::sleep;
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, SetTimer, WM_COMMAND};
 
 mod trion_1_2;
 mod web_site;
 
 mod regedit;
 
-mod win;
 mod protocol;
 mod cipher;
 
@@ -18,49 +20,62 @@ mod helper;
 
 mod system_config;
 mod db_check;
+mod win_main;
+mod win32api;
+mod business_logic;
 
 const WEBSITE_URL: &str = "https://plaa.top";
 
 const VERSION: u16 = 2;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if !regedit::detecting() {
-        if !regedit::register() {
-            unsafe { MessageBoxW(None, w!("首次安装请在文件上右键“以管理员权限运行”"), w!("发生错误"), MB_OK); }
-            return Ok(());
-        }
+async fn set_progress(hwnd: HWND, step: usize) {
+    println!("设置进度");
+    unsafe {
+        SendMessageW(hwnd, WM_COMMAND, WPARAM(step), LPARAM(0));
+    }
+}
+
+
+static SENDER: OnceLock<Arc<Mutex<Sender<(usize, isize)>>>> = OnceLock::new();
+static RECEIVER: OnceLock<Receiver<(usize, isize)>> = OnceLock::new();
+static mut MAIN_HWND: OnceLock<HWND> = OnceLock::new();
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (tx, mut rx) = channel::<(usize, isize)>(1);
+    SENDER.set(Arc::new(Mutex::new(tx.clone()))).unwrap();
+    // RECEIVER.set(&mut rx).unwrap();
+
+    // let s = tx.clone();
+
+    // tokio::task::spawn(async move {
+    //     // let mut e = a;
+    //     loop {
+    //         s.send((0, 0)).await;
+    //         println!("send");
+    //         sleep(Duration::from_secs(1)).await;
+    //     }
+    // });
+    //
+
+
+    println!("程序启动...");
+    let hwnd = win_main::handle().await;
+    // 设置一个定时器，定时触发下消息事件
+    unsafe {
+        SetTimer(hwnd, 1, 10, None);
+        MAIN_HWND = OnceLock::from(hwnd);
     }
 
+    // tokio::task::spawn(async move {
+    //     loop {
+    //         let v = rx.recv().await.unwrap();
+    //
+    //         println!("recv {:?}", v);
+    //     }
+    // });
 
-    let _ = system_config::update();
-
-    let protocol_result = protocol::handle();
-
-    match protocol_result {
-        Ok(auth_token) => {
-            if auth_token.with_launcher_version > VERSION {
-                unsafe {
-                    MessageBoxW(None, w!("当前版本太低，请更新到最新版！"), w!("版本错误"), MB_OK);
-                    web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
-                    return Ok(());
-                }
-            }
-
-            if db_check::handle(auth_token.db_hash.as_ref()).is_err() {
-                web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
-                return Ok(());
-            }
-
-            trion_1_2::launch(&auth_token);
-        }
-        Err(_) => {
-            web_site::open_website(WEBSITE_URL).expect("无法启动浏览器");
-        }
-    }
-
-
-    // web_site::open_website(WEBSITE_URL);
-
-    // sleep(Duration::from_secs(5));
+    win32api::handle_msg();
     Ok(())
 }

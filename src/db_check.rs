@@ -19,7 +19,7 @@ pub fn handle(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
     if !Path::exists(exe_path.as_ref()) {
         unsafe { MessageBoxW(None, w!("游戏资源丢失，需要更新！"), w!("游戏资源有更新"), MB_OK); }
 
-        if (start_download_db(exe_path.as_ref()).is_err()) {
+        if start_download_db(exe_path.as_ref()).is_err() {
             unsafe { MessageBoxW(None, w!("更新游戏资源失败，请联系QQ群。"), w!("游戏资源有更新"), MB_OK); }
             return Err(Box::from("游戏资源更新失败"));
         }
