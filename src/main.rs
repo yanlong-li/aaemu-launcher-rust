@@ -1,13 +1,16 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
+use std::env;
+use std::future::Future;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, SetTimer, WM_COMMAND};
-
-use crate::win_main::WmCommand::{Progress, StartUpgrade};
+use crate::business_logic::handle_launch;
+use crate::win_main::WmCommand::{PlayButton, Progress, StartUpgrade};
 
 mod trion_1_2;
 mod web_site;
@@ -28,7 +31,7 @@ mod download;
 
 const WEBSITE_URL: &str = "https://plaa.top";
 
-const VERSION: u16 = 2;
+const VERSION: u16 = 3;
 
 async fn set_progress(hwnd: HWND, step: usize) {
     println!("设置进度");
@@ -42,25 +45,17 @@ static SENDER: OnceLock<Arc<Mutex<Sender<(usize, isize)>>>> = OnceLock::new();
 static RECEIVER: OnceLock<Receiver<(usize, isize)>> = OnceLock::new();
 static mut MAIN_HWND: OnceLock<HWND> = OnceLock::new();
 
+type AsyncTask = Pin<Box<dyn Future<Output=()> + Send>>;
+
+enum TaskType {
+    Download,
+    Play,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, mut rx) = channel::<(usize, isize)>(10);
     SENDER.set(Arc::new(Mutex::new(tx.clone()))).unwrap();
-    // RECEIVER.set(&mut rx).unwrap();
-
-    // let s = tx.clone();
-
-    // tokio::task::spawn(async move {
-    //     // let mut e = a;
-    //     loop {
-    //         s.send((0, 0)).await;
-    //         println!("send");
-    //         sleep(Duration::from_secs(1)).await;
-    //     }
-    // });
-    //
-
 
     println!("程序启动...");
     let hwnd = win_main::handle().await;
@@ -74,7 +69,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("任务1");
 
     let (task_tx, mut task_rx) = channel(50);
-
 
     let task2 = async {
         println!("等待接收");
@@ -95,8 +89,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             };
                         }
                         val if val == StartUpgrade.into_usize() => {
-                            println!("开始下载...");
-                            task_sender.send(download::download("", "")).await;
+                            println!("开始下载任务");
+                            task_sender.send(TaskType::Download).await;
+                        }
+                        val if val == PlayButton.into_usize() => {
+                            println!("开始游戏任务");
+                            task_sender.send(TaskType::Play).await;
                         }
                         _ => {
                             println!("未知事件 {:?}", res.0);
@@ -114,7 +112,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("等待接收任务");
         while let task = task_rx.recv().await.unwrap() {
             println!("开始执行任务...");
-            tokio::join!(task);
+            match task {
+                TaskType::Download => {
+                    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+                    let db_path = format!("{}{}", root_path, "/game/db/compact.sqlite3");
+                    let down_res = download::download("https://plaa.top/compact.sqlite3", &db_path).await;
+                    println!("文件下载结果 {:?}", down_res);
+                }
+                TaskType::Play => {
+                    let auth_token = protocol::handle().await.unwrap();
+                    handle_launch(&auth_token).await;
+                }
+            }
         }
     };
 

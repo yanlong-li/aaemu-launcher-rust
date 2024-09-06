@@ -5,7 +5,7 @@ use base64::engine::general_purpose;
 use rand::Error;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuthToken {
     #[serde(rename = "u")]
     pub username: String,
@@ -24,7 +24,7 @@ pub struct AuthToken {
 }
 
 
-pub fn handle() -> Result<AuthToken, Box<dyn std::error::Error>> {
+pub async fn handle() -> Result<AuthToken, Box<dyn std::error::Error>> {
     let args = args();
 
     if args.len() < 2 {

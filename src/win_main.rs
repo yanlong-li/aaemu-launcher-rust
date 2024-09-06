@@ -17,9 +17,9 @@ use windows::core::w;
 use windows::Win32::Foundation::{COLORREF, HINSTANCE};
 use windows::Win32::Graphics::Gdi::{BeginPaint, CreateSolidBrush, EndPaint, FillRect, PAINTSTRUCT};
 use windows::Win32::UI::Controls::PBM_SETRANGE;
-use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WINDOW_EX_STYLE, WM_COMMAND, WM_PAINT, WS_ACTIVECAPTION, WS_CAPTION, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU};
+use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW, SendMessageW, SetWindowTextW, ShowWindow, SW_HIDE, WINDOW_EX_STYLE, WM_COMMAND, WM_PAINT, WS_ACTIVECAPTION, WS_CAPTION, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU};
 
-use crate::win_main::WmCommand::{Notice, StartUpgrade};
+use crate::win_main::WmCommand::{Notice, PlayButton, StartUpgrade};
 
 pub async fn handle() -> HWND {
     unsafe {
@@ -62,7 +62,7 @@ pub async fn handle() -> HWND {
 
 // 为 HWND 创建一个包装类型，并手动实现 Sync 和 Send
 #[derive(Copy, Clone, Debug)]
-struct SafeHWND(HWND);
+pub struct SafeHWND(pub(crate) HWND);
 
 // 手动实现 Send 和 Sync
 unsafe impl Send for SafeHWND {}
@@ -70,6 +70,9 @@ unsafe impl Sync for SafeHWND {}
 
 // 使用 OnceLock 来存储线程安全的 SafeHWND
 static PROGRESS_HWND: OnceLock<SafeHWND> = OnceLock::new();
+static UPGRADE_BUTTON_HWND: OnceLock<SafeHWND> = OnceLock::new();
+pub(crate) static NOTICE_TEXT_HWND: OnceLock<SafeHWND> = OnceLock::new();
+static PLAY_GAME_BUTTON_HWND: OnceLock<SafeHWND> = OnceLock::new();
 
 // 用于存储进度条控件的句柄
 // static PROGRESS_HWND: OnceLock<HWND> = OnceLock::new();
@@ -134,24 +137,51 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     unsafe {
                         SendMessageW(PROGRESS_HWND.get().unwrap().0, PBM_SETPOS, WPARAM(l_param.0 as usize), LPARAM(0));
                     }
+
+                    if l_param.0 >= 100 {
+                        unsafe {
+                            MessageBoxW(None, w!("资源更新完成！"), w!("资源更新"), MB_OK);
+                            ShowWindow(PROGRESS_HWND.get().unwrap().0, SW_HIDE);
+                            SendMessageW(hwnd, WM_COMMAND, WPARAM(Notice.into_usize()), LPARAM(2));
+
+                            PLAY_GAME_BUTTON_HWND.get_or_init(|| {
+                                SafeHWND(CreateWindowExW(
+                                    Default::default(),
+                                    w!("BUTTON"),
+                                    w!("开始游戏"),
+                                    WS_CHILD | WS_VISIBLE,
+                                    10,
+                                    400,
+                                    360,
+                                    30,
+                                    hwnd,
+                                    HMENU(WmCommand::PlayButton as usize as *mut std::ffi::c_void),
+                                    GetModuleHandleW(None).unwrap(),
+                                    None,
+                                ).unwrap())
+                            });
+                        }
+                    }
                 }
                 val if val == WmCommand::UpgradeButton.into_usize() => {
                     println!("触发 UpgradeButton");
                     unsafe {
-                        CreateWindowExW(
-                            Default::default(),
-                            w!("BUTTON"),
-                            w!("开始更新"),
-                            WS_CHILD | WS_VISIBLE,
-                            10,
-                            400,
-                            360,
-                            30,
-                            hwnd,
-                            HMENU(WmCommand::StartUpgrade as usize as *mut std::ffi::c_void),
-                            GetModuleHandleW(None).unwrap(),
-                            None,
-                        );
+                        UPGRADE_BUTTON_HWND.get_or_init(|| {
+                            SafeHWND(CreateWindowExW(
+                                Default::default(),
+                                w!("BUTTON"),
+                                w!("开始更新"),
+                                WS_CHILD | WS_VISIBLE,
+                                10,
+                                400,
+                                360,
+                                30,
+                                hwnd,
+                                HMENU(WmCommand::StartUpgrade as usize as *mut std::ffi::c_void),
+                                GetModuleHandleW(None).unwrap(),
+                                None,
+                            ).unwrap())
+                        }).0;
                     }
                 }
                 val if val == WmCommand::StartUpgrade.into_usize() => {
@@ -177,6 +207,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     }).0;
 
                     unsafe {
+                        ShowWindow(UPGRADE_BUTTON_HWND.get().unwrap().0, SW_HIDE);
                         // 设置进度条范围及初始位置
                         // 设置进度条范围：最小值为 0，最大值为 100
                         SendMessageW(progress_hwnd, PBM_SETRANGE, WPARAM(0), makelparam(0, 100));
@@ -184,60 +215,47 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                         SendMessageW(progress_hwnd, PBM_SETPOS, WPARAM(0), LPARAM(0));
                     }
 
-                    let rc = super::SENDER.get();
-
-                    let rl = rc.clone();
-
-                    let rm = rl.unwrap().lock();
-
-                    let s = rm.unwrap().try_send((StartUpgrade.into_usize(), 0));
-
-                    println!("{:?}",s);
-
-
-                    // tokio::spawn(async {
-                    //     let rc = super::SENDER.get();
-                    //
-                    //     match rc {
-                    //         None => {}
-                    //         Some(mut ra) => {
-                    //             let rl = ra.clone();
-                    //
-                    //             let rm = rl.lock();
-                    //
-                    //             match rm {
-                    //                 Ok(rs) => {
-                    //                     for i in 0..101 {
-                    //                         sleep(std::time::Duration::from_secs(1));
-                    //                         println!("发送进度 {}", i);
-                    //                         tokio::spawn(rs.send((WmCommand::Progress as usize, i)));
-                    //                     }
-                    //                 }
-                    //                 Err(_) => {}
-                    //             }
-                    //         }
-                    //     };
-                    // });
+                    let res = super::SENDER.get().clone().unwrap().lock().unwrap().try_send((StartUpgrade.into_usize(), 0));
+                    println!("{:?}", res);
                 }
                 val if val == Notice.into_usize() => {
+                    let lpstr = match l_param {
+                        LPARAM(0) => { w!("当前有新版本需要更新，请点击开始更新按钮继续。") }
+                        LPARAM(1) => { w!("游戏启动中，请稍后") }
+                        LPARAM(2) => { w!("游戏资源已更新完成，您可以开始游戏啦~") }
+                        _ => { w!("Notice") }
+                    };
+
                     println!("触发 Notice");
+                    let notice_hwnd = NOTICE_TEXT_HWND.get_or_init(|| {
+                        SafeHWND(unsafe {
+                            CreateWindowExW(
+                                Default::default(),
+                                w!("STATIC"),
+                                lpstr,
+                                WS_CHILD | WS_VISIBLE | super::win32api::SS_CENTER,
+                                10,
+                                50,
+                                360,
+                                60,
+                                hwnd,
+                                None,
+                                GetModuleHandleW(None).unwrap(),
+                                None,
+                            ).unwrap()
+                        })
+                    });
 
                     unsafe {
-                        CreateWindowExW(
-                            Default::default(),
-                            w!("STATIC"),
-                            w!("当前有新版本需要更新，请点击开始更新按钮继续。"),
-                            WS_CHILD | WS_VISIBLE | super::win32api::SS_CENTER,
-                            10,
-                            50,
-                            360,
-                            60,
-                            hwnd,
-                            None,
-                            GetModuleHandleW(None).unwrap(),
-                            None,
-                        );
+                        SetWindowTextW(notice_hwnd.0, lpstr);
                     }
+                }
+                val if val == PlayButton.into_usize() => {
+                    println!("触发 PlayButton");
+
+                    let res = super::SENDER.get().unwrap().lock().unwrap().try_send((PlayButton.into_usize(), 0));
+
+                    println!("{:?}", res);
                 }
                 _ => {
                     println!("没有处理的事件 {}", w_param.0);
