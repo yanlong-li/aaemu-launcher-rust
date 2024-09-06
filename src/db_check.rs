@@ -10,6 +10,26 @@ use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
 
 const DB_PATH: &str = "/game/db/compact.sqlite3";
 
+
+pub fn detect_db(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+    let exe_path = format!("{}{}", root_path, DB_PATH);
+
+    if !Path::exists(exe_path.as_ref()) {
+        return Err("文件不存在".into());
+    }
+
+    let file = File::open(&exe_path)?;
+    let digest = md5::chksum(file)?;
+
+
+    if (digest.to_hex_lowercase() != hash) {
+        return Err("文件已变更".into());
+    }
+
+    return Ok(());
+}
+
 pub fn handle(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
     let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
 
@@ -19,10 +39,10 @@ pub fn handle(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
     if !Path::exists(exe_path.as_ref()) {
         unsafe { MessageBoxW(None, w!("游戏资源丢失，需要更新！"), w!("游戏资源有更新"), MB_OK); }
 
-        if start_download_db(exe_path.as_ref()).is_err() {
-            unsafe { MessageBoxW(None, w!("更新游戏资源失败，请联系QQ群。"), w!("游戏资源有更新"), MB_OK); }
-            return Err(Box::from("游戏资源更新失败"));
-        }
+        // if start_download_db(exe_path.as_ref()).is_err() {
+        //     unsafe { MessageBoxW(None, w!("更新游戏资源失败，请联系QQ群。"), w!("游戏资源有更新"), MB_OK); }
+        //     return Err(Box::from("游戏资源更新失败"));
+        // }
     }
 
     let file = File::open(&exe_path)?;
@@ -31,17 +51,17 @@ pub fn handle(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     if (digest.to_hex_lowercase() != hash) {
         unsafe { MessageBoxW(None, w!("游戏资源有新版本需要更新！"), w!("游戏资源有更新"), MB_OK); }
-        if (start_download_db(exe_path.as_ref()).is_err()) {
-            unsafe { MessageBoxW(None, w!("更新游戏资源失败，请联系QQ群。"), w!("游戏资源有更新"), MB_OK); }
-            return Err(Box::from("游戏资源更新失败"));
-        }
+        // if (start_download_db(exe_path.as_ref()).is_err()) {
+        //     unsafe { MessageBoxW(None, w!("更新游戏资源失败，请联系QQ群。"), w!("游戏资源有更新"), MB_OK); }
+        //     return Err(Box::from("游戏资源更新失败"));
+        // }
     }
 
     return Ok(());
 }
 
 
-fn download_file(url: &str, save_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub async  fn download_file(url: &str, save_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     // 创建一个 HTTP 客户端
     let client = Client::new();
     // 发送 GET 请求到指定的 URL
@@ -61,9 +81,12 @@ fn download_file(url: &str, save_path: &Path) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-fn start_download_db(save_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async  fn start_download_db() -> Result<(), Box<dyn std::error::Error>> {
     let url = "https://plaa.top/compact.sqlite3";
 
-    download_file(url, Path::new(save_path))?;
-    Ok(())
+    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+
+    let exe_path = format!("{}{}", root_path, DB_PATH);
+
+    download_file(url, Path::new(&exe_path)).await
 }

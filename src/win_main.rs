@@ -1,24 +1,25 @@
-use std::sync::{Arc, LockResult, Mutex, OnceLock};
-use std::thread::sleep;
-use tokio::sync::mpsc::Sender;
-use windows::core::w;
-use windows::Win32::Foundation::{COLORREF, HINSTANCE};
-use windows::Win32::Graphics::Gdi::{BeginPaint, CreateSolidBrush, EndPaint, FillRect, PAINTSTRUCT};
-use windows::Win32::UI::Controls::PBM_SETRANGE;
-use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WINDOW_EX_STYLE, WM_COMMAND, WM_PAINT, WS_ACTIVECAPTION, WS_CAPTION, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU};
+use std::sync::OnceLock;
+
 use windows::{
     core::PCWSTR,
     Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     Win32::System::LibraryLoader::GetModuleHandleW,
     Win32::UI::Controls::{InitCommonControls, PBM_SETPOS, PROGRESS_CLASS},
     Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, LoadCursorW, PostQuitMessage,
-        RegisterClassW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-        HMENU, IDC_ARROW, WM_CREATE, WM_DESTROY, WNDCLASSW, WS_CHILD
+        CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+        DefWindowProcW, HMENU, IDC_ARROW, LoadCursorW,
+        PostQuitMessage, RegisterClassW, WM_CREATE, WM_DESTROY, WNDCLASSW, WS_CHILD
         , WS_VISIBLE,
     }
     ,
 };
+use windows::core::w;
+use windows::Win32::Foundation::{COLORREF, HINSTANCE};
+use windows::Win32::Graphics::Gdi::{BeginPaint, CreateSolidBrush, EndPaint, FillRect, PAINTSTRUCT};
+use windows::Win32::UI::Controls::PBM_SETRANGE;
+use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WINDOW_EX_STYLE, WM_COMMAND, WM_PAINT, WS_ACTIVECAPTION, WS_CAPTION, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU};
+
+use crate::win_main::WmCommand::{Notice, StartUpgrade};
 
 pub async fn handle() -> HWND {
     unsafe {
@@ -89,6 +90,7 @@ pub enum WmCommand {
     PlayButton,
     UpgradeButton,
     StartUpgrade,
+    Notice,
 }
 
 impl WmCommand {
@@ -121,7 +123,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                 );
                 // endregion
 
-                super::business_logic::handle(hwnd)
+                // super::business_logic::handle(hwnd)
             }
         }
         // 自定义消息
@@ -182,6 +184,16 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                         SendMessageW(progress_hwnd, PBM_SETPOS, WPARAM(0), LPARAM(0));
                     }
 
+                    let rc = super::SENDER.get();
+
+                    let rl = rc.clone();
+
+                    let rm = rl.unwrap().lock();
+
+                    let s = rm.unwrap().try_send((StartUpgrade.into_usize(), 0));
+
+                    println!("{:?}",s);
+
 
                     // tokio::spawn(async {
                     //     let rc = super::SENDER.get();
@@ -206,6 +218,26 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     //         }
                     //     };
                     // });
+                }
+                val if val == Notice.into_usize() => {
+                    println!("触发 Notice");
+
+                    unsafe {
+                        CreateWindowExW(
+                            Default::default(),
+                            w!("STATIC"),
+                            w!("当前有新版本需要更新，请点击开始更新按钮继续。"),
+                            WS_CHILD | WS_VISIBLE | super::win32api::SS_CENTER,
+                            10,
+                            50,
+                            360,
+                            60,
+                            hwnd,
+                            None,
+                            GetModuleHandleW(None).unwrap(),
+                            None,
+                        );
+                    }
                 }
                 _ => {
                     println!("没有处理的事件 {}", w_param.0);
