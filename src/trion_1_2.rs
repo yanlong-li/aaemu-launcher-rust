@@ -1,14 +1,15 @@
 use std::{env, ptr};
 use std::mem::size_of;
 use std::os::windows::process::CommandExt;
-
+use std::process::Stdio;
+use std::time::Duration;
 use rand::Rng;
 use rc4::{KeyInit, Rc4, StreamCipher};
 use windows::core::w;
 use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
 use windows::Win32::System::Memory::{CreateFileMappingW, FILE_MAP_ALL_ACCESS, MapViewOfFile, PAGE_READWRITE};
-use windows::Win32::System::Threading::CreateEventW;
+use windows::Win32::System::Threading::{CreateEventW, DETACHED_PROCESS};
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
 
 use crate::protocol::AuthToken;
@@ -106,7 +107,7 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
     Ok((file_map_handle.0 as usize, event_handle.0 as usize))
 }
 
-pub(crate) fn launch(auth_token: &AuthToken) {
+pub(crate) async fn launch(auth_token: &AuthToken) {
     let (p0, p1) = init_ticket(&auth_token.username, &auth_token.password).expect("初始化令牌失败");
 
     let handle_args = format!("-t +auth_ip {:} -auth_port {:} -handle {:08X}:{:08X} -lang zh_cn +acpxmk", auth_token.server, auth_token.port, p0, p1);
@@ -119,21 +120,37 @@ pub(crate) fn launch(auth_token: &AuthToken) {
 
 
     if !std::path::Path::exists(exe_path.as_ref()) {
-        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录"), w!("发生错误"), MB_OK); }
+        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录。和 game_pak 文件同目录。"), w!("发生错误"), MB_OK); }
         return;
     }
 
 
-    let mut command = std::process::Command::new(exe_path);
-    command.raw_arg(handle_args);
+    let mut result = std::process::Command::new(exe_path)
+        .raw_arg(handle_args)
+        .stdin(Stdio::null()) // 分离标准输入
+        .stdout(Stdio::null()) // 分离标准输出
+        .stderr(Stdio::null()) // 分离标准错误;
+        .creation_flags(DETACHED_PROCESS.0) // 设置分离进程标志
+        // 启动程序并等待它完成
+        .spawn().expect("Failed to start process");
 
-    // 启动程序并等待它完成
-    let status = command.status().expect("Failed to start process");
 
-    // 检查程序的退出状态
-    if status.success() {
-        println!("程序启动成功");
-    } else {
-        eprintln!("程序启动失败: {:?}", status);
-    }
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    //
+    //
+    // match result.try_wait() {
+    //     Ok(status) => {
+    //         println!("{:?}", status);
+    //     }
+    //     Err(_) => {
+    //         return;
+    //     }
+    // };
+
+    // // 检查程序的退出状态
+    // if status.success() {
+    //     println!("程序启动成功");
+    // } else {
+    //     eprintln!("程序启动失败: {:?}", status);
+    // }
 }

@@ -29,6 +29,8 @@ mod win32api;
 mod business_logic;
 mod download;
 
+mod site_link_url;
+
 const WEBSITE_URL: &str = "https://plaa.top";
 
 const VERSION: u16 = 3;

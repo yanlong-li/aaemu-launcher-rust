@@ -4,12 +4,14 @@ use windows::core::w;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW, SendMessageW, ShowWindow, SW_SHOW, WM_COMMAND, WM_DESTROY};
 
-use crate::{db_check, protocol, regedit, system_config, trion_1_2, VERSION, web_site, WEBSITE_URL};
+use crate::{db_check, protocol, regedit, site_link_url, system_config, trion_1_2, VERSION, web_site, WEBSITE_URL};
 use crate::protocol::AuthToken;
 use crate::win_main::WmCommand::Notice;
 
 pub async fn handle(hwnd: HWND) {
     // region 业务逻辑
+
+   site_link_url::handle().await;
 
     if !regedit::detecting() {
         if !regedit::register() {
@@ -27,8 +29,9 @@ pub async fn handle(hwnd: HWND) {
     let res = protocol::handle().await;
 
     if res.is_err() {
-        web_site::open_website(WEBSITE_URL);
         unsafe {
+            MessageBoxW(hwnd, w!("本服非直接启动，请在官网点击“启动游戏”按钮。"), w!("游戏启动提示"), MB_OK);
+            web_site::open_website(WEBSITE_URL);
             SendMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
         }
         return;
@@ -93,7 +96,7 @@ pub async fn handle_version(with_launcher_version: u16) -> bool {
 
 pub async fn handle_launch(auth_token: &AuthToken) {
     // let protocol_result = protocol::handle().await;
-    trion_1_2::launch(auth_token);
+    trion_1_2::launch(auth_token).await;
     // match auth_token {
     //     Ok(auth_token) => {
     //         trion_1_2::launch(&auth_token);
