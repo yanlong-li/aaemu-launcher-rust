@@ -10,7 +10,7 @@ pub async fn handle_msg() {
     let mut msg = MSG::default();
     unsafe {
         while GetMessageW(&mut msg, HWND::default(), 0, 0).into() {
-            TranslateMessage(&msg);
+            let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
             tokio::time::sleep(Duration::from_micros(1)).await;
         }

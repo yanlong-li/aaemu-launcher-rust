@@ -116,7 +116,7 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
 
     let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
 
-    let mut exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
+    let exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
 
 
     if !std::path::Path::exists(exe_path.as_ref()) {
@@ -125,7 +125,7 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
     }
 
 
-    let mut result = std::process::Command::new(exe_path)
+    let _result = std::process::Command::new(exe_path)
         .raw_arg(handle_args)
         .stdin(Stdio::null()) // 分离标准输入
         .stdout(Stdio::null()) // 分离标准输出
@@ -138,7 +138,7 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
     tokio::time::sleep(Duration::from_secs(5)).await;
     //
     //
-    // match result.try_wait() {
+    // match _result.try_wait() {
     //     Ok(status) => {
     //         println!("{:?}", status);
     //     }

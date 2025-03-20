@@ -1,6 +1,4 @@
-use std::hash::Hash;
-
-use windows::core::w;
+use windows::core::{w, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW, SendMessageW, ShowWindow, SW_SHOW, WM_COMMAND, WM_DESTROY};
 
@@ -11,7 +9,7 @@ use crate::win_main::WmCommand::Notice;
 pub async fn handle(hwnd: HWND) {
     // region 业务逻辑
 
-   site_link_url::handle().await;
+   let _ = site_link_url::handle().await;
 
     if !regedit::detecting() {
         if !regedit::register() {
@@ -23,22 +21,26 @@ pub async fn handle(hwnd: HWND) {
         }
     }
     unsafe {
-        ShowWindow(hwnd, SW_SHOW);
+        let _ = ShowWindow(hwnd, SW_SHOW);
     };
 
     let res = protocol::handle().await;
 
     if res.is_err() {
         unsafe {
-            MessageBoxW(hwnd, w!("本服非直接启动，请在官网点击“启动游戏”按钮。"), w!("游戏启动提示"), MB_OK);
-            web_site::open_website(WEBSITE_URL);
+            // "本服非直接启动，请在官网点击“启动游戏”按钮。";
+            let msg = res.unwrap_err().to_string();
+            let hstring = HSTRING::from(msg);
+            let msg_pcwstr  = PCWSTR(hstring.as_ptr());
+            MessageBoxW(hwnd, msg_pcwstr, w!("游戏启动提示"), MB_OK);
+            let _ = web_site::open_website(WEBSITE_URL);
             SendMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
         }
         return;
     }
     let auth_token = res.unwrap();
 
-    if (!handle_version(auth_token.with_launcher_version).await) {
+    if !handle_version(auth_token.with_launcher_version).await {
         unsafe {
             SendMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
         }
@@ -67,7 +69,7 @@ pub async fn handle(hwnd: HWND) {
 }
 
 pub async fn handle_conf() {
-    system_config::update().await;
+    let _ = system_config::update().await;
 }
 
 pub async fn handle_db_check(hwnd: HWND, auth_token: &AuthToken) -> bool {
@@ -79,7 +81,7 @@ pub async fn handle_db_check(hwnd: HWND, auth_token: &AuthToken) -> bool {
         }
         return false;
     }
-    return true;
+    true
 }
 
 pub async fn handle_version(with_launcher_version: u16) -> bool {
@@ -91,7 +93,7 @@ pub async fn handle_version(with_launcher_version: u16) -> bool {
             return false;
         }
     }
-    return true;
+    true
 }
 
 pub async fn handle_launch(auth_token: &AuthToken) {

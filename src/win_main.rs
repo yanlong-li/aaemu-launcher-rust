@@ -81,10 +81,10 @@ fn makelparam(low: u16, high: u16) -> LPARAM {
     LPARAM(((low as i32) | ((high as i32) << 16)) as isize)
 }
 
-enum IDC {
-    IdcButton = 1001,
-    IdcStaticText,
-}
+// enum IDC {
+//     IdcButton = 1001,
+//     IdcStaticText,
+// }
 
 
 #[repr(usize)]
@@ -110,7 +110,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                 // endregion
                 // region text
                 // Create static text
-                CreateWindowExW(
+                let _ = CreateWindowExW(
                     Default::default(),
                     w!("STATIC"),
                     w!("PLAA"),
@@ -141,7 +141,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     if l_param.0 >= 100 {
                         unsafe {
                             MessageBoxW(None, w!("资源更新完成！"), w!("资源更新"), MB_OK);
-                            ShowWindow(PROGRESS_HWND.get().unwrap().0, SW_HIDE);
+                            let _ = ShowWindow(PROGRESS_HWND.get().unwrap().0, SW_HIDE);
                             SendMessageW(hwnd, WM_COMMAND, WPARAM(Notice.into_usize()), LPARAM(2));
 
                             PLAY_GAME_BUTTON_HWND.get_or_init(|| {
@@ -155,7 +155,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                                     360,
                                     30,
                                     hwnd,
-                                    HMENU(WmCommand::PlayButton as usize as *mut std::ffi::c_void),
+                                    HMENU(PlayButton as usize as *mut std::ffi::c_void),
                                     GetModuleHandleW(None).unwrap(),
                                     None,
                                 ).unwrap())
@@ -177,14 +177,14 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                                 360,
                                 30,
                                 hwnd,
-                                HMENU(WmCommand::StartUpgrade as usize as *mut std::ffi::c_void),
+                                HMENU(StartUpgrade as usize as *mut std::ffi::c_void),
                                 GetModuleHandleW(None).unwrap(),
                                 None,
                             ).unwrap())
                         }).0;
                     }
                 }
-                val if val == WmCommand::StartUpgrade.into_usize() => {
+                val if val == StartUpgrade.into_usize() => {
                     println!("触发 StartUpgrade");
 
                     let progress_hwnd = PROGRESS_HWND.get_or_init(|| {
@@ -207,7 +207,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     }).0;
 
                     unsafe {
-                        ShowWindow(UPGRADE_BUTTON_HWND.get().unwrap().0, SW_HIDE);
+                        let _ = ShowWindow(UPGRADE_BUTTON_HWND.get().unwrap().0, SW_HIDE);
                         // 设置进度条范围及初始位置
                         // 设置进度条范围：最小值为 0，最大值为 100
                         SendMessageW(progress_hwnd, PBM_SETRANGE, WPARAM(0), makelparam(0, 100));
@@ -247,7 +247,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                     });
 
                     unsafe {
-                        SetWindowTextW(notice_hwnd.0, lpstr);
+                        SetWindowTextW(notice_hwnd.0, lpstr).expect("TODO: panic message");
                     }
                 }
                 val if val == PlayButton.into_usize() => {
@@ -275,7 +275,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                 let hdc = BeginPaint(hwnd, &mut ps);
                 let brush = CreateSolidBrush(COLORREF(0xFFFFFF)); // 白色
                 FillRect(hdc, &ps.rcPaint, brush);
-                EndPaint(hwnd, &ps);
+                let _ = EndPaint(hwnd, &ps);
             }
         }
         _ => return unsafe {
@@ -286,10 +286,10 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
     LRESULT(0)
 }
 
-fn loword(value: usize) -> u16 {
-    (value & 0xFFFF) as u16
-}
-
-fn hiword(value: usize) -> u16 {
-    ((value >> 16) & 0xFFFF) as u16
-}
+// fn loword(value: usize) -> u16 {
+//     (value & 0xFFFF) as u16
+// }
+//
+// fn hiword(value: usize) -> u16 {
+//     ((value >> 16) & 0xFFFF) as u16
+// }

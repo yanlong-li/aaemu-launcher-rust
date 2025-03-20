@@ -1,33 +1,30 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 use std::env;
-use std::future::Future;
-use std::ops::Deref;
-use std::pin::Pin;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, SetTimer, WM_COMMAND};
 use crate::business_logic::handle_launch;
 use crate::win_main::WmCommand::{PlayButton, Progress, StartUpgrade};
+use tokio::sync::mpsc::{channel, Sender};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, SetTimer, WM_COMMAND};
 
 mod trion_1_2;
 mod web_site;
 
 mod regedit;
 
-mod protocol;
 mod cipher;
+mod protocol;
 
 mod helper;
 
-mod system_config;
-mod db_check;
-mod win_main;
-mod win32api;
 mod business_logic;
+mod db_check;
 mod download;
+mod system_config;
+mod win32api;
+mod win_main;
 
 mod site_link_url;
 
@@ -35,19 +32,18 @@ const WEBSITE_URL: &str = "https://plaa.top";
 
 const VERSION: u16 = 3;
 
-async fn set_progress(hwnd: HWND, step: usize) {
-    println!("设置进度");
-    unsafe {
-        SendMessageW(hwnd, WM_COMMAND, WPARAM(step), LPARAM(0));
-    }
-}
-
+// async fn set_progress(hwnd: HWND, step: usize) {
+//     println!("设置进度");
+//     unsafe {
+//         SendMessageW(hwnd, WM_COMMAND, WPARAM(step), LPARAM(0));
+//     }
+// }
 
 static SENDER: OnceLock<Arc<Mutex<Sender<(usize, isize)>>>> = OnceLock::new();
-static RECEIVER: OnceLock<Receiver<(usize, isize)>> = OnceLock::new();
+// static RECEIVER: OnceLock<Receiver<(usize, isize)>> = OnceLock::new();
 static mut MAIN_HWND: OnceLock<HWND> = OnceLock::new();
 
-type AsyncTask = Pin<Box<dyn Future<Output=()> + Send>>;
+// type AsyncTask = Pin<Box<dyn Future<Output=()> + Send>>;
 
 enum TaskType {
     Download,
@@ -67,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         MAIN_HWND = OnceLock::from(hwnd);
     }
 
-    tokio::join!( business_logic::handle(hwnd));
+    tokio::join!(business_logic::handle(hwnd));
     println!("任务1");
 
     let (task_tx, mut task_rx) = channel(50);
@@ -87,16 +83,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         val if val == Progress.into_usize() => {
                             println!("收到 Progress");
                             unsafe {
-                                SendMessageW(hwnd, WM_COMMAND, WPARAM(Progress.into_usize()), LPARAM(res.1));
+                                SendMessageW(
+                                    hwnd,
+                                    WM_COMMAND,
+                                    WPARAM(Progress.into_usize()),
+                                    LPARAM(res.1),
+                                );
                             };
                         }
                         val if val == StartUpgrade.into_usize() => {
                             println!("开始下载任务");
-                            task_sender.send(TaskType::Download).await;
+                            task_sender
+                                .send(TaskType::Download)
+                                .await
+                                .expect("TODO: panic message");
                         }
                         val if val == PlayButton.into_usize() => {
                             println!("开始游戏任务");
-                            task_sender.send(TaskType::Play).await;
+                            task_sender
+                                .send(TaskType::Play)
+                                .await
+                                .expect("TODO: panic message");
                         }
                         _ => {
                             println!("未知事件 {:?}", res.0);
@@ -109,16 +116,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let task3 = win32api::handle_msg();
 
-
     let task4 = async {
         println!("等待接收任务");
-        while let task = task_rx.recv().await.unwrap() {
+        loop {
             println!("开始执行任务...");
-            match task {
+            match task_rx.recv().await.unwrap() {
                 TaskType::Download => {
-                    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+                    let root_path = env::current_exe()
+                        .expect("获取当前路径失败")
+                        .parent()
+                        .expect("获取父级目录")
+                        .to_str()
+                        .expect("转换为字符串失败")
+                        .to_string();
                     let db_path = format!("{}{}", root_path, "/game/db/compact.sqlite3");
-                    let down_res = download::download("https://plaa.top/compact.sqlite3", &db_path).await;
+                    let down_res =
+                        download::download("https://plaa.top/compact.sqlite3", &db_path).await;
                     println!("文件下载结果 {:?}", down_res);
                 }
                 TaskType::Play => {
@@ -133,8 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       _ = task2=>{},
       _ = task3=>{},
       _ = task4=>{},
-    }
-    ;
+    };
 
     println!("任务2");
     Ok(())
