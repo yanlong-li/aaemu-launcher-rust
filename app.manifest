@@ -13,8 +13,7 @@
             type="win32"
             name="Microsoft.Windows.Common-Controls"
             version="1.0.0.0"
-            processorArchitecture="X86"
-            publicKeyToken="6595b64144ccf1df"
+            processorArchitecture="*"
             language="*"
         />
     </dependentAssembly>
@@ -24,7 +23,7 @@
 		<requestedPrivileges>
 			<requestedExecutionLevel
 				level="requireAdministrator"
-				uiAccess="false"/>
+				uiAccess="true"/>
 		</requestedPrivileges>
 	</security>
 </trustInfo>
