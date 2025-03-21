@@ -1,9 +1,6 @@
 use std::time::Duration;
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, TranslateMessage, MSG, WINDOW_STYLE};
-
-pub const SS_CENTER: WINDOW_STYLE = WINDOW_STYLE(1);
-
+use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, TranslateMessage, MSG};
 
 pub async fn handle_msg() {
     // 消息循环

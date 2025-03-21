@@ -1,5 +1,5 @@
 [package]
-name = "rust_win"
+name = "Patcher"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,41 +7,35 @@ edition = "2021"
 byteorder = "1.4.3"
 rc4 = "0.1.0"
 hex = "0.4"
-rand = "0.8"
-
+rand = "0.9.0"
 encoding_rs = "0.8"
-
 base64 = "0.22"
-
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
 opener = "=0.7.2"
-
-chksum-md5 = "0.0.0"
+chksum-md5 = "0.1.0"
 reqwest = { version = "0.12.7", features = ["blocking", "stream"] }
-
 tokio = { version = "1", features = ["full"] }
-anyhow = "1.0.86"
 futures = "0.3.30"
+tracing-subscriber = "0.3.19"
+tracing = "0.1.40"
+
 
 [dependencies.windows]
 version = "0.58.0"
 features = [
-    #    "Win32_System_Console",
     "Win32_Foundation",
     "Win32_Security",
     "Win32_System_Memory",
-    #    "Win32_System_SystemServices",
     "Win32_System_Threading",
     "Win32_Storage_FileSystem",
-    #    "Win32_System_WindowsProgramming",
-    #    "Win32_UI",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
     "Win32_System_LibraryLoader",
     "Win32_UI_Controls",
-    "Win32_Graphics"
+    "Win32_Graphics",
+    "Win32_System_Com",
+    "Win32_UI_Shell"
 ]
 
 [profile.release]

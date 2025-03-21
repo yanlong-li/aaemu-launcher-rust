@@ -1,10 +1,10 @@
 use windows::core::{w, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW, SendMessageW, ShowWindow, SW_SHOW, WM_COMMAND, WM_DESTROY};
+use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, SendMessageW, ShowWindow, MB_OK, SW_SHOW, WM_COMMAND, WM_DESTROY};
 
-use crate::{db_check, protocol, regedit, site_link_url, system_config, trion_1_2, VERSION, web_site, WEBSITE_URL};
 use crate::protocol::AuthToken;
 use crate::win_main::WmCommand::Notice;
+use crate::{db_check, protocol, regedit, site_link_url, system_config, trion_1_2, web_site, VERSION, WEBSITE_URL};
 
 pub async fn handle(hwnd: HWND) {
     // region 业务逻辑
@@ -55,16 +55,9 @@ pub async fn handle(hwnd: HWND) {
     // web_site::open_website(WEBSITE_URL);
 
     unsafe {
-        // let text = crate::win_main::NOTICE_TEXT_HWND.get().unwrap().0;
-
+        SendMessageW(hwnd, WM_COMMAND, WPARAM(super::win_main::WmCommand::ShowPlayButton.into_usize()), LPARAM(100));
         SendMessageW(hwnd, WM_COMMAND, WPARAM(Notice.into_usize()), LPARAM(1));
     }
-
-    handle_launch(&auth_token).await;
-    unsafe {
-        SendMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
-    }
-    // endregion
     return;
 }
 

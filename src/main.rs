@@ -1,13 +1,8 @@
 // #![windows_subsystem = "windows"]
 
-use std::env;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crate::business_logic::handle_launch;
-use crate::win_main::WmCommand::{PlayButton, Progress, StartUpgrade};
 use tokio::sync::mpsc::{channel, Sender};
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, SetTimer, WM_COMMAND};
 
 mod trion_1_2;
 mod web_site;
@@ -26,126 +21,42 @@ mod system_config;
 mod win32api;
 mod win_main;
 
+mod resources;
+
 mod site_link_url;
+
+mod task;
 
 const WEBSITE_URL: &str = "https://plaa.top";
 
 const VERSION: u16 = 3;
 
-// async fn set_progress(hwnd: HWND, step: usize) {
-//     println!("设置进度");
-//     unsafe {
-//         SendMessageW(hwnd, WM_COMMAND, WPARAM(step), LPARAM(0));
-//     }
-// }
-
 static SENDER: OnceLock<Arc<Mutex<Sender<(usize, isize)>>>> = OnceLock::new();
-// static RECEIVER: OnceLock<Receiver<(usize, isize)>> = OnceLock::new();
-static mut MAIN_HWND: OnceLock<HWND> = OnceLock::new();
-
-// type AsyncTask = Pin<Box<dyn Future<Output=()> + Send>>;
-
-enum TaskType {
-    Download,
-    Play,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    // initialize tracing
+    tracing_subscriber::fmt::init();
+
+    resources::release();
+
     let (tx, mut rx) = channel::<(usize, isize)>(10);
     SENDER.set(Arc::new(Mutex::new(tx.clone()))).unwrap();
 
-    println!("程序启动...");
+    tracing::info!("程序启动...");
     let hwnd = win_main::handle().await;
-    // 设置一个定时器，定时触发下消息事件
-    unsafe {
-        SetTimer(hwnd, 1, 10, None);
-        MAIN_HWND = OnceLock::from(hwnd);
-    }
 
-    tokio::join!(business_logic::handle(hwnd));
     println!("任务1");
+    tokio::join!(business_logic::handle(hwnd));
 
-    let (task_tx, mut task_rx) = channel(50);
+    let task1 = task::task(&mut rx, hwnd);
 
-    let task2 = async {
-        println!("等待接收");
-
-        let task_sender = task_tx.clone();
-        loop {
-            let s = rx.recv().await;
-            println!("已接受 {:?}", s);
-            match s {
-                None => {}
-                Some(res) => {
-                    println!("{:?}", res);
-                    match res.0 {
-                        val if val == Progress.into_usize() => {
-                            println!("收到 Progress");
-                            unsafe {
-                                SendMessageW(
-                                    hwnd,
-                                    WM_COMMAND,
-                                    WPARAM(Progress.into_usize()),
-                                    LPARAM(res.1),
-                                );
-                            };
-                        }
-                        val if val == StartUpgrade.into_usize() => {
-                            println!("开始下载任务");
-                            task_sender
-                                .send(TaskType::Download)
-                                .await
-                                .expect("TODO: panic message");
-                        }
-                        val if val == PlayButton.into_usize() => {
-                            println!("开始游戏任务");
-                            task_sender
-                                .send(TaskType::Play)
-                                .await
-                                .expect("TODO: panic message");
-                        }
-                        _ => {
-                            println!("未知事件 {:?}", res.0);
-                        }
-                    }
-                }
-            };
-        }
-    };
-
-    let task3 = win32api::handle_msg();
-
-    let task4 = async {
-        println!("等待接收任务");
-        loop {
-            println!("开始执行任务...");
-            match task_rx.recv().await.unwrap() {
-                TaskType::Download => {
-                    let root_path = env::current_exe()
-                        .expect("获取当前路径失败")
-                        .parent()
-                        .expect("获取父级目录")
-                        .to_str()
-                        .expect("转换为字符串失败")
-                        .to_string();
-                    let db_path = format!("{}{}", root_path, "/game/db/compact.sqlite3");
-                    let down_res =
-                        download::download("https://plaa.top/compact.sqlite3", &db_path).await;
-                    println!("文件下载结果 {:?}", down_res);
-                }
-                TaskType::Play => {
-                    let auth_token = protocol::handle().await.unwrap();
-                    handle_launch(&auth_token).await;
-                }
-            }
-        }
-    };
+    let task2 = win32api::handle_msg();
 
     tokio::select! {
+      _ = task1=>{},
       _ = task2=>{},
-      _ = task3=>{},
-      _ = task4=>{},
     };
 
     println!("任务2");

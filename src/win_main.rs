@@ -1,25 +1,31 @@
+use crate::win_main::button_start::create;
+use crate::win_main::WmCommand::{Exit, Notice, PlayButton, ShowPlayButton, StartUpgrade};
 use std::sync::OnceLock;
-
+use windows::core::w;
+use windows::Win32::Foundation::{HINSTANCE, RECT};
+use windows::Win32::Graphics::Gdi::{
+    BeginPaint, BitBlt, CreateCompatibleDC, EndPaint, GetObjectW, SelectObject, BITMAP, HBITMAP,
+    PAINTSTRUCT, SRCCOPY,
+};
+use windows::Win32::UI::Controls::PBM_SETRANGE;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClientRect, GetSystemMetrics, LoadImageW, MessageBoxW, SendMessageW, SetWindowTextW,
+    ShowWindow, ES_CENTER, IMAGE_BITMAP, LR_LOADFROMFILE, MB_OK, SW_HIDE, SYSTEM_METRICS_INDEX,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_COMMAND, WM_PAINT, WS_POPUP,
+};
 use windows::{
     core::PCWSTR,
     Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     Win32::System::LibraryLoader::GetModuleHandleW,
-    Win32::UI::Controls::{InitCommonControls, PBM_SETPOS, PROGRESS_CLASS},
+    Win32::UI::Controls::{InitCommonControls, PBM_SETPOS},
     Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-        DefWindowProcW, HMENU, IDC_ARROW, LoadCursorW,
-        PostQuitMessage, RegisterClassW, WM_CREATE, WM_DESTROY, WNDCLASSW, WS_CHILD
-        , WS_VISIBLE,
-    }
-    ,
+        CreateWindowExW, DefWindowProcW, LoadCursorW, PostQuitMessage, RegisterClassW, CS_HREDRAW,
+        CS_VREDRAW, HMENU, IDC_ARROW, WM_CREATE, WM_DESTROY, WM_LBUTTONDOWN, WNDCLASSW, WS_CHILD,
+        WS_VISIBLE,
+    },
 };
-use windows::core::w;
-use windows::Win32::Foundation::{COLORREF, HINSTANCE};
-use windows::Win32::Graphics::Gdi::{BeginPaint, CreateSolidBrush, EndPaint, FillRect, PAINTSTRUCT};
-use windows::Win32::UI::Controls::PBM_SETRANGE;
-use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW, SendMessageW, SetWindowTextW, ShowWindow, SW_HIDE, WINDOW_EX_STYLE, WM_COMMAND, WM_PAINT, WS_ACTIVECAPTION, WS_CAPTION, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU};
 
-use crate::win_main::WmCommand::{Notice, PlayButton, StartUpgrade};
+static mut HBITMAP_BG: HBITMAP = HBITMAP(0 as *mut std::ffi::c_void);
 
 pub async fn handle() -> HWND {
     unsafe {
@@ -40,21 +46,30 @@ pub async fn handle() -> HWND {
 
         RegisterClassW(&wc);
 
+        // 获取屏幕的宽度和高度
+        let screen_width = GetSystemMetrics(SYSTEM_METRICS_INDEX(0)); // 0代表屏幕宽度
+        let screen_height = GetSystemMetrics(SYSTEM_METRICS_INDEX(1)); // 1代表屏幕高度
+
+        // 计算窗口的位置：居中显示
+        let x_position = (screen_width - 800) / 2;
+        let y_position = (screen_height - 600) / 2;
+
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             PCWSTR(class_name.as_ptr()),
             w!("随时删档跑路的上古"),
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+            WS_VISIBLE | WS_POPUP,
             // WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            400,
+            x_position,
+            y_position,
+            800,
             600,
             HWND::default(),
             HMENU::default(),
             h_instance,
             Some(std::ptr::null_mut()),
-        ).unwrap();
+        )
+        .unwrap();
 
         hwnd
     }
@@ -73,18 +88,11 @@ static PROGRESS_HWND: OnceLock<SafeHWND> = OnceLock::new();
 static UPGRADE_BUTTON_HWND: OnceLock<SafeHWND> = OnceLock::new();
 pub(crate) static NOTICE_TEXT_HWND: OnceLock<SafeHWND> = OnceLock::new();
 static PLAY_GAME_BUTTON_HWND: OnceLock<SafeHWND> = OnceLock::new();
+static EXIT_GAME_BUTTON_HWND: OnceLock<SafeHWND> = OnceLock::new();
 
-// 用于存储进度条控件的句柄
-// static PROGRESS_HWND: OnceLock<HWND> = OnceLock::new();
-// 定义 MAKELPARAM 的函数
 fn makelparam(low: u16, high: u16) -> LPARAM {
     LPARAM(((low as i32) | ((high as i32) << 16)) as isize)
 }
-
-// enum IDC {
-//     IdcButton = 1001,
-//     IdcStaticText,
-// }
 
 
 #[repr(usize)]
@@ -94,6 +102,8 @@ pub enum WmCommand {
     UpgradeButton,
     StartUpgrade,
     Notice,
+    Exit,
+    ShowPlayButton,
 }
 
 impl WmCommand {
@@ -107,27 +117,27 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
         // 窗口创建
         WM_CREATE => {
             unsafe {
-                // endregion
-                // region text
-                // Create static text
-                let _ = CreateWindowExW(
-                    Default::default(),
-                    w!("STATIC"),
-                    w!("PLAA"),
-                    WS_CHILD | WS_VISIBLE | super::win32api::SS_CENTER,
-                    10,
-                    10,
-                    360,
-                    30,
-                    hwnd,
-                    None,
-                    GetModuleHandleW(None).unwrap(),
-                    None,
+                // 加载背景图片
+                HBITMAP_BG = HBITMAP(
+                    LoadImageW(
+                        GetModuleHandleW(None).unwrap(),
+                        PCWSTR(w!(r"./resources/background.bmp").as_ptr()),
+                        IMAGE_BITMAP,
+                        0,
+                        0,
+                        LR_LOADFROMFILE,
+                    )
+                    .unwrap()
+                    .0,
                 );
-                // endregion
 
-                // super::business_logic::handle(hwnd)
+                button_exit::create(hwnd);
+
+                SendMessageW(hwnd, WM_COMMAND, WPARAM(Notice.into_usize()), LPARAM(1));
             }
+        }
+        WM_LBUTTONDOWN => {
+            println!("WM_LBUTTONDOWN 事件 {}", w_param.0);
         }
         // 自定义消息
         WM_COMMAND => {
@@ -135,7 +145,12 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                 val if val == WmCommand::Progress.into_usize() => {
                     println!("触发 Progress");
                     unsafe {
-                        SendMessageW(PROGRESS_HWND.get().unwrap().0, PBM_SETPOS, WPARAM(l_param.0 as usize), LPARAM(0));
+                        SendMessageW(
+                            PROGRESS_HWND.get().unwrap().0,
+                            PBM_SETPOS,
+                            WPARAM(l_param.0 as usize),
+                            LPARAM(0),
+                        );
                     }
 
                     if l_param.0 >= 100 {
@@ -144,67 +159,23 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                             let _ = ShowWindow(PROGRESS_HWND.get().unwrap().0, SW_HIDE);
                             SendMessageW(hwnd, WM_COMMAND, WPARAM(Notice.into_usize()), LPARAM(2));
 
-                            PLAY_GAME_BUTTON_HWND.get_or_init(|| {
-                                SafeHWND(CreateWindowExW(
-                                    Default::default(),
-                                    w!("BUTTON"),
-                                    w!("开始游戏"),
-                                    WS_CHILD | WS_VISIBLE,
-                                    10,
-                                    400,
-                                    360,
-                                    30,
-                                    hwnd,
-                                    HMENU(PlayButton as usize as *mut std::ffi::c_void),
-                                    GetModuleHandleW(None).unwrap(),
-                                    None,
-                                ).unwrap())
-                            });
+                            SendMessageW(
+                                hwnd,
+                                WM_COMMAND,
+                                WPARAM(ShowPlayButton.into_usize()),
+                                LPARAM(1),
+                            );
                         }
                     }
                 }
                 val if val == WmCommand::UpgradeButton.into_usize() => {
                     println!("触发 UpgradeButton");
-                    unsafe {
-                        UPGRADE_BUTTON_HWND.get_or_init(|| {
-                            SafeHWND(CreateWindowExW(
-                                Default::default(),
-                                w!("BUTTON"),
-                                w!("开始更新"),
-                                WS_CHILD | WS_VISIBLE,
-                                10,
-                                400,
-                                360,
-                                30,
-                                hwnd,
-                                HMENU(StartUpgrade as usize as *mut std::ffi::c_void),
-                                GetModuleHandleW(None).unwrap(),
-                                None,
-                            ).unwrap())
-                        }).0;
-                    }
+                    button_upgrade::create(hwnd);
                 }
                 val if val == StartUpgrade.into_usize() => {
                     println!("触发 StartUpgrade");
 
-                    let progress_hwnd = PROGRESS_HWND.get_or_init(|| {
-                        SafeHWND(unsafe {
-                            CreateWindowExW(
-                                WINDOW_EX_STYLE(0),
-                                PCWSTR(PROGRESS_CLASS.0),
-                                PCWSTR(std::ptr::null()),
-                                WS_CHILD | WS_VISIBLE | WS_ACTIVECAPTION,
-                                10,
-                                520,
-                                360,
-                                30,
-                                hwnd,
-                                HMENU::default(),
-                                GetModuleHandleW(None).unwrap(),
-                                Some(std::ptr::null_mut()),
-                            ).unwrap()
-                        })
-                    }).0;
+                    let progress_hwnd = progress_upgrade::create(hwnd);
 
                     unsafe {
                         let _ = ShowWindow(UPGRADE_BUTTON_HWND.get().unwrap().0, SW_HIDE);
@@ -215,15 +186,29 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                         SendMessageW(progress_hwnd, PBM_SETPOS, WPARAM(0), LPARAM(0));
                     }
 
-                    let res = super::SENDER.get().clone().unwrap().lock().unwrap().try_send((StartUpgrade.into_usize(), 0));
+                    let res = super::SENDER
+                        .get()
+                        .clone()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .try_send((StartUpgrade.into_usize(), 0));
                     println!("{:?}", res);
                 }
                 val if val == Notice.into_usize() => {
                     let lpstr = match l_param {
-                        LPARAM(0) => { w!("当前有新版本需要更新，请点击开始更新按钮继续。") }
-                        LPARAM(1) => { w!("游戏启动中，请稍后") }
-                        LPARAM(2) => { w!("游戏资源已更新完成，您可以开始游戏啦~") }
-                        _ => { w!("Notice") }
+                        LPARAM(0) => {
+                            w!("当前有新版本需要更新，请点击开始更新按钮继续。")
+                        }
+                        LPARAM(1) => {
+                            w!("游戏启动中，请稍后")
+                        }
+                        LPARAM(2) => {
+                            w!("游戏资源已更新完成，您可以开始游戏啦~")
+                        }
+                        _ => {
+                            w!("Notice")
+                        }
                     };
 
                     println!("触发 Notice");
@@ -233,16 +218,17 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                                 Default::default(),
                                 w!("STATIC"),
                                 lpstr,
-                                WS_CHILD | WS_VISIBLE | super::win32api::SS_CENTER,
-                                10,
-                                50,
+                                WS_CHILD | WS_VISIBLE | WINDOW_STYLE(ES_CENTER as u32),
+                                220,
+                                420,
                                 360,
-                                60,
+                                30,
                                 hwnd,
                                 None,
                                 GetModuleHandleW(None).unwrap(),
                                 None,
-                            ).unwrap()
+                            )
+                            .unwrap()
                         })
                     });
 
@@ -253,43 +239,78 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPAR
                 val if val == PlayButton.into_usize() => {
                     println!("触发 PlayButton");
 
-                    let res = super::SENDER.get().unwrap().lock().unwrap().try_send((PlayButton.into_usize(), 0));
+                    let res = super::SENDER
+                        .get()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .try_send((PlayButton.into_usize(), 0));
 
                     println!("{:?}", res);
                 }
+                val if val == Exit.into_usize() => unsafe {
+                    PostQuitMessage(0);
+                },
+                val if val == ShowPlayButton.into_usize() => unsafe {
+                    create(hwnd);
+
+                    NOTICE_TEXT_HWND.get().and_then(|no| {
+                        let _ = ShowWindow(no.0, SW_HIDE);
+                        Some(no)
+                    });
+                },
                 _ => {
                     println!("没有处理的事件 {}", w_param.0);
                 }
             }
         }
         // 窗口销毁
-        WM_DESTROY => {
-            unsafe {
-                PostQuitMessage(0);
-            }
-        }
+        WM_DESTROY => unsafe {
+            PostQuitMessage(0);
+        },
         // 重新绘制窗口
         WM_PAINT => {
+            println!("主窗体绘制");
             unsafe {
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(hwnd, &mut ps);
-                let brush = CreateSolidBrush(COLORREF(0xFFFFFF)); // 白色
-                FillRect(hdc, &ps.rcPaint, brush);
+
+                // 获取窗口客户区尺寸
+                let mut client_rect = RECT::default();
+                let _ = GetClientRect(hwnd, &mut client_rect);
+
+                let hdc_mem = CreateCompatibleDC(hdc);
+                let old_bitmap = SelectObject(hdc_mem, HBITMAP_BG);
+                let mut bitmap = BITMAP::default();
+                GetObjectW(
+                    HBITMAP_BG,
+                    std::mem::size_of::<BITMAP>() as i32,
+                    Option::from(&mut bitmap as *mut BITMAP as *mut std::ffi::c_void),
+                );
+
+                BitBlt(
+                    hdc,
+                    0,
+                    0,
+                    bitmap.bmWidth,
+                    bitmap.bmHeight,
+                    hdc_mem,
+                    0,
+                    0,
+                    SRCCOPY,
+                )
+                .expect("主窗口绘制失败");
+                SelectObject(hdc_mem, old_bitmap);
                 let _ = EndPaint(hwnd, &ps);
             }
         }
-        _ => return unsafe {
-            DefWindowProcW(hwnd, msg, w_param, l_param)
-        },
+        _ => return unsafe { DefWindowProcW(hwnd, msg, w_param, l_param) },
     }
 
     LRESULT(0)
 }
 
-// fn loword(value: usize) -> u16 {
-//     (value & 0xFFFF) as u16
-// }
-//
-// fn hiword(value: usize) -> u16 {
-//     ((value >> 16) & 0xFFFF) as u16
-// }
+mod button_exit;
+mod button_start;
+mod button_upgrade;
+mod progress_upgrade;

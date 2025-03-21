@@ -21,7 +21,7 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
     let mut encryption_key = [0u8; 8];
 
     // 创建随机数生成器
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // 填充字节数组
     rng.fill(&mut encryption_key);
