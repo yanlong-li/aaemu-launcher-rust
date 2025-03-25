@@ -2,8 +2,8 @@ use crate::{MainWindow, State, Task};
 use tokio::sync::mpsc::Receiver;
 use tracing::{debug, warn};
 
-pub async fn task(rx: &mut Receiver<Task>, app: MainWindow) {
-    println!("等待接收任务");
+pub async fn handle(rx: &mut Receiver<Task>, app: &MainWindow) {
+    debug!("等待接收任务");
     loop {
         match rx.recv().await {
             None => {

@@ -5,7 +5,7 @@ use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::time::Duration;
 use std::{env, ptr};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use windows::core::w;
 use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
@@ -33,7 +33,7 @@ pub fn init_ticket(
     rng.fill(&mut encryption_key);
 
     // 打印生成的随机字节数组（这里将其转为十六进制字符串以便查看）
-    println!("随机Key: {:?}", hex::encode(encryption_key));
+    info!("随机Key: {:?}", hex::encode(encryption_key));
 
     // Step 1: Set up SECURITY_ATTRIBUTES for handle inheritance
     let mut sa = SECURITY_ATTRIBUTES {
@@ -65,7 +65,7 @@ pub fn init_ticket(
     }?;
 
     if file_map_handle.is_invalid() {
-        eprintln!("Failed to create file mapping object.");
+        error!("Failed to create file mapping object.");
         return Ok((0, 0));
     }
 
@@ -81,7 +81,7 @@ pub fn init_ticket(
     };
 
     if file_map_view.Value.is_null() {
-        eprintln!("Failed to map view of file.");
+        error!("Failed to map view of file.");
         return Ok((0, 0));
     }
 
@@ -103,11 +103,11 @@ pub fn init_ticket(
         unsafe { CreateEventW(Some(&mut sa), true, false, w!("archeage_auth_ticket_event")) }?;
 
     if event_handle == HANDLE::default() {
-        eprintln!("Failed to create event object.");
+        error!("Failed to create event object.");
         return Ok((0, 0));
     }
 
-    println!("文件映射创建成功");
+    info!("文件映射创建成功");
     Ok((file_map_handle.0 as usize, event_handle.0 as usize))
 }
 
@@ -138,9 +138,7 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
                 .await
                 .send(crate::Task::Message(
                     String::from("系统错误"),
-                    String::from(
-                        "游戏未安装",
-                    ),
+                    String::from("游戏未安装"),
                     MessageActions::None,
                 ))
                 .await
@@ -164,7 +162,7 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
     //
     // match _result.try_wait() {
     //     Ok(status) => {
-    //         println!("{:?}", status);
+    //         info!("{:?}", status);
     //     }
     //     Err(_) => {
     //         return;
@@ -173,8 +171,8 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
 
     // // 检查程序的退出状态
     // if status.success() {
-    //     println!("程序启动成功");
+    //     info!("程序启动成功");
     // } else {
-    //     eprintln!("程序启动失败: {:?}", status);
+    //     error!("程序启动失败: {:?}", status);
     // }
 }

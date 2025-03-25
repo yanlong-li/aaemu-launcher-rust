@@ -1,7 +1,7 @@
 use crate::protocol::AuthToken;
 use crate::{db_check, protocol, regedit, site_link_url, system_config, trion_1_2, MainWindow, MessageActions, State, VERSION};
 
-pub async fn handle(window: MainWindow) {
+pub async fn handle(window: &MainWindow) {
     let _ = site_link_url::handle().await;
     if !regedit::detecting() {
         if !regedit::register() {

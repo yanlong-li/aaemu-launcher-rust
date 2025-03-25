@@ -81,7 +81,7 @@ pub async fn handle() -> Result<AuthToken, Box<dyn Error>> {
                 let iv = data.get(0..8).expect("IV获取失败");
                 let ciphertext = data.get(8..).expect("密文获取失败");
 
-                println!("协议内容 {}", url);
+                tracing::info!("协议内容 {}", url);
                 let plaintext =
                     super::cipher::decrypt(ciphertext, <&[u8; 8]>::try_from(iv).unwrap())?;
                 let auth_token: AuthToken = serde_json::from_slice(plaintext.as_slice())

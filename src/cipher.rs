@@ -16,7 +16,7 @@ pub fn decrypt(plain_data: &[u8], encryption_key: &[u8; 8]) -> Result<Vec<u8>, &
 // pub fn encrypt(plain_data: &mut [u8], iv: &[u8]) -> Result<String, &'static str> {
 //
 //
-//     println!("Ciphertext (hex): {:?}", ciphertext);
+//     info!("Ciphertext (hex): {:?}", ciphertext);
 //
 //     // Ok("output".to_string())
 //     // 将加密数据转换为 Base64 编码的字符串以便于展示

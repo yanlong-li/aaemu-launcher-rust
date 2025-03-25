@@ -1,4 +1,5 @@
 use std::env;
+use tracing::{error, info};
 use windows::core::{Interface, HSTRING};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_ALL,
@@ -33,7 +34,7 @@ pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
         let shell_link = CoCreateInstance(&ShellLink, None, CLSCTX_ALL);
 
         if shell_link.is_err() {
-            println!("{:?}", shell_link.err());
+            info!("{:?}", shell_link.err());
             return Err("CoCreateInstance failed".into());
         }
         //
@@ -68,9 +69,9 @@ pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
         let result = persist_file.Save(&target_save, true);
         //
         if result.is_ok() {
-            println!("Shortcut created successfully at {}", &file_path);
+            info!("Shortcut created successfully at {}", &file_path);
         } else {
-            println!("发生错误 {}", result.unwrap_err());
+            error!("发生错误 {}", result.unwrap_err());
         }
 
         CoUninitialize();

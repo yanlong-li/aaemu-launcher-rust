@@ -59,7 +59,6 @@ export component MainWindow inherits Window {
         msg-content = content;
         msg-action = action;
         message_box.show();
-        debug("触发消息弹窗");
     }
 
     start_button := TouchArea {
@@ -80,7 +79,7 @@ export component MainWindow inherits Window {
             clip: true;
             Text {
                 text: "开始游戏";
-                font-size: 2.4rem;
+                font-size: 2rem;
                 color: white;
             }
         }
@@ -106,8 +105,14 @@ export component MainWindow inherits Window {
         y: 420px;
         visible: state == State.Upgrade;
         Rectangle {
-            Image {
-                source: @image-url("../resources/upgrade.jpg");
+            background: #ed0058;
+            border-radius: 8px;
+            clip: true;
+            Text {
+                text: "开始更新";
+                color: white;
+                font-size: 2rem;
+                font-weight: 600;
             }
         }
 
@@ -127,10 +132,12 @@ export component MainWindow inherits Window {
 
         Rectangle {
             background: darkred;
+            border-radius: 8px;
             Text {
                 text: pause ? "恢复":"暂停";
                 color: white;
-                font-size: 2.4rem;
+                font-size: 2rem;
+                font-weight: 600;
             }
         }
 
@@ -187,7 +194,7 @@ export component MainWindow inherits Window {
 
         box := Rectangle {
             width: 300px;
-            height: 120px;
+            height: 130px;
             background: white;
             border-radius: 8px;
             clip: true;

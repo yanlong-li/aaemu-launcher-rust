@@ -4,6 +4,7 @@ use std::process::Command;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 use encoding_rs::GBK;
+use tracing::info;
 
 pub fn get_reg_str() -> String {
     String::from(r#"Windows Registry Editor Version 5.00
@@ -32,7 +33,7 @@ pub fn detecting() -> bool {
     if output.status.success() {
         let binding = output.stdout.to_vec();
         let out_msg = GBK.decode(&*binding);
-        println!("ok {:?}", out_msg.0);
+        info!("ok {:?}", out_msg.0);
         let program = env::current_exe().expect("获取路径失败");
 
         let s = program.to_str().unwrap();
@@ -40,12 +41,12 @@ pub fn detecting() -> bool {
         ok = out_msg.0.contains(&s);
 
         if !ok {
-            println!("地址不匹配，重新注册")
+            info!("地址不匹配，重新注册")
         }
     } else {
         let binding = output.stderr.to_vec();
         let out_msg = GBK.decode(&*binding);
-        println!("err {:?}", out_msg.0);
+        info!("err {:?}", out_msg.0);
     }
 
 
@@ -72,7 +73,7 @@ pub fn register() -> bool {
         }
     }
 
-    println!("{}", "导入注册表数据");
+    info!("{}", "导入注册表数据");
     let output = Command::new("reg")
         .arg("import")
         .arg(&reg_path)
@@ -85,17 +86,17 @@ pub fn register() -> bool {
     if output.status.success() {
         let binding = output.stdout.to_vec();
         let out_msg = GBK.decode(binding.as_ref());
-        println!("{:?}", out_msg);
+        info!("{:?}", out_msg);
     } else {
         let binding = output.stderr.to_vec();
         let out_msg = GBK.decode(binding.as_ref());
-        println!("{:?}", out_msg.0);
+        info!("{:?}", out_msg.0);
     }
 
 
     // 删除文件
     let res = remove_file(reg_path);
-    println!("清理临时数据 {:?}", res);
+    info!("清理临时数据 {:?}", res);
 
     return output.status.success();
 }

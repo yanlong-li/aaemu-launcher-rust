@@ -33,7 +33,7 @@ pub async fn download(url: &str, filename: &str) -> Result<(), Box<dyn std::erro
 
     // 异步处理数据流
     let mut stream = response.bytes_stream();
-    let s3 = super::SENDER.get().unwrap().clone();
+    let s3 = super::SENDER.get().unwrap();
 
     // 读取流并计算进度
     while let Some(chunk) = stream.next().await {

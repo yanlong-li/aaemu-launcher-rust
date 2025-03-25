@@ -11,7 +11,6 @@ fn main() {
 
     slint_build::compile_with_config("ui/app-window.slint",config).unwrap();
 
-    // slint_build::compile("ui/popup.slint").unwrap();
 
     println!("cargo:rerun-if-changed=app.rc");
     println!("cargo:rerun-if-changed=app.manifest");
