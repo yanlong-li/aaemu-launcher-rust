@@ -1,6 +1,6 @@
 [package]
-name = "Patcher"
-version = "0.1.0"
+name = "Launcher"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
@@ -20,23 +20,21 @@ futures = "0.3.30"
 tracing-subscriber = "0.3.19"
 tracing = "0.1.40"
 
+slint = "1.10.0"
+async-compat = "0.2.4"
+
+
 
 [dependencies.windows]
 version = "0.58.0"
 features = [
-    "Win32_Foundation",
     "Win32_Security",
     "Win32_System_Memory",
     "Win32_System_Threading",
-    "Win32_Storage_FileSystem",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_Graphics_Gdi",
-    "Win32_System_LibraryLoader",
-    "Win32_UI_Controls",
-    "Win32_Graphics",
-    "Win32_System_Com",
     "Win32_UI_Shell"
 ]
+[build-dependencies]
+slint-build = "1.10.0"
 
 [profile.release]
 panic = "abort"

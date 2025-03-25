@@ -1,23 +1,29 @@
-use std::{env, ptr};
+use rand::Rng;
+use rc4::{KeyInit, Rc4, StreamCipher};
 use std::mem::size_of;
 use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::time::Duration;
-use rand::Rng;
-use rc4::{KeyInit, Rc4, StreamCipher};
+use std::{env, ptr};
+use tracing::{debug, error};
 use windows::core::w;
 use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
-use windows::Win32::System::Memory::{CreateFileMappingW, FILE_MAP_ALL_ACCESS, MapViewOfFile, PAGE_READWRITE};
+use windows::Win32::System::Memory::{
+    CreateFileMappingW, MapViewOfFile, FILE_MAP_ALL_ACCESS, PAGE_READWRITE,
+};
 use windows::Win32::System::Threading::{CreateEventW, DETACHED_PROCESS};
-use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
 
 use crate::protocol::AuthToken;
+use crate::{MessageActions, SENDER};
 
 const ARCHEAGE: &str = "\\archeage.exe";
 const SUB_DIR: &str = "\\bin32";
 
-pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box<dyn std::error::Error>> {
+pub fn init_ticket(
+    username: &str,
+    password: &str,
+) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let mut encryption_key = [0u8; 8];
 
     // 创建随机数生成器
@@ -29,7 +35,6 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
     // 打印生成的随机字节数组（这里将其转为十六进制字符串以便查看）
     println!("随机Key: {:?}", hex::encode(encryption_key));
 
-
     // Step 1: Set up SECURITY_ATTRIBUTES for handle inheritance
     let mut sa = SECURITY_ATTRIBUTES {
         nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
@@ -39,7 +44,6 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
 
     // Step 2: Define the maximum size for the file mapping
     let mut ticket_data = format!("TFIRdGVzdA==\n<?xml version=\"1.0\" encoding=\"UTF - 8\" standalone=\"yes\"?><authTicket version=\"1.2\"><storeToken>1</storeToken><client>PLAA</client><username>{}</username><password>{}</password></authTicket>", username, password).into_bytes(); // your encrypted data
-
 
     let mut rc4 = Rc4::new(&encryption_key.into());
 
@@ -83,7 +87,8 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
 
     // Step 5: Copy data to the mapped memory
     unsafe {
-        let dest = std::slice::from_raw_parts_mut(file_map_view.Value as *mut u8, max_map_size as usize);
+        let dest =
+            std::slice::from_raw_parts_mut(file_map_view.Value as *mut u8, max_map_size as usize);
         dest[..8].copy_from_slice(&encryption_key);
 
         let ticket_len: u32 = ticket_data.len() as u32;
@@ -94,9 +99,8 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
 
     // Step 6: Create an event object
     // let event_name = to_wide_string("archeage_auth_ticket_event");
-    let event_handle = unsafe {
-        CreateEventW(Some(&mut sa), true, false, w!("archeage_auth_ticket_event"))
-    }?;
+    let event_handle =
+        unsafe { CreateEventW(Some(&mut sa), true, false, w!("archeage_auth_ticket_event")) }?;
 
     if event_handle == HANDLE::default() {
         eprintln!("Failed to create event object.");
@@ -110,20 +114,40 @@ pub fn init_ticket(username: &str, password: &str) -> Result<(usize, usize), Box
 pub(crate) async fn launch(auth_token: &AuthToken) {
     let (p0, p1) = init_ticket(&auth_token.username, &auth_token.password).expect("初始化令牌失败");
 
-    let handle_args = format!("-t +auth_ip {:} -auth_port {:} -handle {:08X}:{:08X} -lang zh_cn +acpxmk", auth_token.server, auth_token.port, p0, p1);
+    let handle_args = format!(
+        "-t +auth_ip {:} -auth_port {:} -handle {:08X}:{:08X} -lang zh_cn +acpxmk",
+        auth_token.server, auth_token.port, p0, p1
+    );
 
-    println!("{:?}", handle_args);
+    debug!("{:?}", handle_args);
 
-    let root_path = env::current_exe().expect("获取当前路径失败").parent().expect("获取父级目录").to_str().expect("转换为字符串失败").to_string();
+    let root_path = env::current_exe()
+        .expect("获取当前路径失败")
+        .parent()
+        .expect("获取父级目录")
+        .to_str()
+        .expect("转换为字符串失败")
+        .to_string();
 
     let exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
 
-
     if !std::path::Path::exists(exe_path.as_ref()) {
-        unsafe { MessageBoxW(None, w!("找不到游戏程序，请将启动器放置在游戏目录。和 game_pak 文件同目录。"), w!("发生错误"), MB_OK); }
+        error!("找不到游戏程序，请将启动器放置在游戏目录。和 game_pak 文件同目录。");
+        if let Some(tx) = SENDER.get() {
+            tx.lock()
+                .await
+                .send(crate::Task::Message(
+                    String::from("系统错误"),
+                    String::from(
+                        "游戏未安装",
+                    ),
+                    MessageActions::None,
+                ))
+                .await
+                .ok();
+        };
         return;
     }
-
 
     let _result = std::process::Command::new(exe_path)
         .raw_arg(handle_args)
@@ -132,8 +156,8 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
         .stderr(Stdio::null()) // 分离标准错误;
         .creation_flags(DETACHED_PROCESS.0) // 设置分离进程标志
         // 启动程序并等待它完成
-        .spawn().expect("Failed to start process");
-
+        .spawn()
+        .expect("Failed to start process");
 
     tokio::time::sleep(Duration::from_secs(5)).await;
     //

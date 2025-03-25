@@ -1,55 +1,28 @@
-use crate::business_logic::handle_launch;
-use crate::win_main::WmCommand::{PlayButton, Progress, StartUpgrade};
-use crate::{download, protocol};
-use std::env;
+use crate::{MainWindow, State, Task};
 use tokio::sync::mpsc::Receiver;
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_COMMAND};
+use tracing::{debug, warn};
 
-pub async fn task(rx: &mut Receiver<(usize, isize)>, hwnd: HWND) {
+pub async fn task(rx: &mut Receiver<Task>, app: MainWindow) {
     println!("等待接收任务");
     loop {
-        let s = rx.recv().await;
-        println!("任务已接受 {:?}", s);
-        match s {
-            None => {}
-            Some(res) => match res.0 {
-                val if val == Progress.into_usize() => {
-                    println!("收到 Progress");
-                    unsafe {
-                        SendMessageW(
-                            hwnd,
-                            WM_COMMAND,
-                            WPARAM(Progress.into_usize()),
-                            LPARAM(res.1),
-                        );
-                    };
+        match rx.recv().await {
+            None => {
+                warn!("想终止任务？");
+            }
+            Some(msg) => match msg {
+                Task::Progress(percentage) => {
+                    debug!("升级进度:{}", percentage);
+                    app.invoke_changeProgres(percentage as f32);
+                    if percentage >= 100f64 {
+                        app.invoke_changeState(State::Ready);
+                    }
+                    debug!("进度条更新完成");
                 }
-                val if val == StartUpgrade.into_usize() => {
-                    let auth_token = protocol::handle().await.unwrap();
-                    let root_path = env::current_exe()
-                        .expect("获取当前路径失败")
-                        .parent()
-                        .expect("获取父级目录")
-                        .to_str()
-                        .expect("转换为字符串失败")
-                        .to_string();
-                    let db_path = format!("{}{}", root_path, "/game/db/compact.sqlite3");
-                    let down_res = download::download(
-                        &format!("{}/compact.sqlite3", auth_token.domain),
-                        &db_path,
-                    )
-                    .await;
-                    println!("文件下载结果 {:?}", down_res);
-                }
-                val if val == PlayButton.into_usize() => {
-                    let auth_token = protocol::handle().await.unwrap();
-                    handle_launch(&auth_token).await;
-                }
-                _ => {
-                    println!("未知事件 {:?}", res.0);
+                Task::Message(title, content, action) => {
+                    debug!("发送消息通知");
+                    app.invoke_message(title.into(), content.into(), action);
                 }
             },
-        };
+        }
     }
 }

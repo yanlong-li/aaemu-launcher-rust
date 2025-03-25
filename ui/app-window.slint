@@ -1,0 +1,247 @@
+import { Button,ProgressIndicator } from "std-widgets.slint";
+
+enum State{
+    Loading,
+    Ready,
+    Upgrade,
+    Upgrading
+}
+
+export enum MessageActions{
+    None,
+    Exit,
+    OpenWebsite
+}
+
+
+
+export component MainWindow inherits Window {
+    width: 800px;
+    height: 600px;
+//    background: #666;
+    title: "ArcheWorld";
+    no-frame: true;
+
+    Image {
+        source: @image-url("../resources/background.jpg");
+        width: 800px;
+        height: 600px;
+        x: 0;
+        y: 0;
+    }
+
+    property <State> state: State.Loading;
+    property <percent> value: 0%;
+
+    pure callback start_game;
+    pure callback exit;
+    pure callback open_website;
+    pure callback upgrade;
+
+    pure callback pause_upgrade(v: bool);
+
+    public function changeProgres(v: percent) {
+        value = v;
+        debug(v);
+    }
+
+    public function changeState(s: State) {
+        state = s
+    }
+
+    property <string> msg-title:"消息标题";
+    property <string> msg-content: "消息内容";
+    property <string> msg-confirm-button-text: "确认";
+    property <MessageActions> msg-action: MessageActions.None;
+
+    public function message(title: string, content: string, action: MessageActions) {
+        msg-title = title;
+        msg-content = content;
+        msg-action = action;
+        message_box.show();
+        debug("触发消息弹窗");
+    }
+
+    start_button := TouchArea {
+        width: 300px;
+        height: 74px;
+        x: 250px;
+        y: 420px;
+        visible: state == State.Ready;
+        inner := Rectangle {
+            property <bool> active: false;
+            opacity: active ? 0.5 : 1;
+
+            Image {
+                source: @image-url("../resources/bg-start.png");
+            }
+
+            border-radius: 8px;
+            clip: true;
+            Text {
+                text: "开始游戏";
+                font-size: 2.4rem;
+                color: white;
+            }
+        }
+
+        clicked => {
+            root.start_game();
+        }
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.left) {
+                if (e.kind == PointerEventKind.down) {
+                    inner.active = true;
+                } else {
+                    inner.active = false;
+                }
+            }
+        }
+    }
+
+    upgrade_button := TouchArea {
+        width: 300px;
+        height: 74px;
+        x: 250px;
+        y: 420px;
+        visible: state == State.Upgrade;
+        Rectangle {
+            Image {
+                source: @image-url("../resources/upgrade.jpg");
+            }
+        }
+
+        clicked => {
+            upgrade();
+            state = State.Upgrading;
+        }
+    }
+
+    TouchArea {
+        width: 300px;
+        height: 74px;
+        x: 250px;
+        y: 420px;
+        visible: state == State.Upgrading;
+        property <bool> pause: false;
+
+        Rectangle {
+            background: darkred;
+            Text {
+                text: pause ? "恢复":"暂停";
+                color: white;
+                font-size: 2.4rem;
+            }
+        }
+
+        clicked => {
+            pause = !pause;
+            pause_upgrade(pause)
+        }
+    }
+
+    TouchArea {
+        width: 200px;
+        height: 30px;
+        x: (800px - self.width) / 2;
+        y: start_button.y + start_button.height + 20px;
+        visible: state != State.Loading;
+        Rectangle {
+            border-radius: 8px;
+            background: #bc3f30;
+            Text {
+                text: "退出游戏";
+                color: #f2f2f2;
+                font-size: 1.4rem;
+            }
+        }
+
+        clicked => {
+            exit();
+        }
+    }
+
+    progress := ProgressIndicator {
+        width: 100%;
+        height: 10px;
+        progress: value;
+        y: 600px - 10px;
+        x: 0;
+        visible: state == State.Upgrading;
+    }
+
+//    timer := Timer {
+//        interval: 1ms;
+//        running: false;
+//        triggered() => {
+//            value += 0.5%;
+//            if (value >= 100%) {
+//                self.running = false;
+//                state = State.Ready;
+//                value = 0%;
+//            }
+//        }
+//    }
+
+    message_box := PopupWindow {
+
+        box := Rectangle {
+            width: 300px;
+            height: 120px;
+            background: white;
+            border-radius: 8px;
+            clip: true;
+//            y: 420px;
+
+            title-w := Text {
+                text: msg-title;
+                y: 5px;
+                font-size: 16px;
+                height: 20px;
+            }
+
+            msg-w := Text {
+                text: msg-content;
+                y: title-w.y + title-w.height + 10px;
+                font-size: 14px;
+                height: 40px;
+            }
+
+            TouchArea {
+                y: msg-w.y + msg-w.height + 10px;
+                width: 60px;
+                height: 32px;
+                Rectangle {
+                    background: #a980eb;
+                    border-radius: 8px;
+                    Text {
+                        text: "确认";
+                        color: white;
+                    }
+                }
+
+                clicked => {
+                    if (msg-action == MessageActions.Exit) {
+                        exit();
+                    }
+                    if (msg-action == MessageActions.OpenWebsite) {
+                        open_website();
+                    }
+                    if (msg-action == MessageActions.None) {
+                        message_box.close();
+                    }
+                }
+            }
+        }
+
+        close-policy: no-auto-close;
+
+        width: 300px;
+        height: 120px;
+//            background: white;
+//            border-radius: 8px;
+//            clip: true;
+            y: 420px;
+        x: (800px - 300px) / 2;
+    }
+}
