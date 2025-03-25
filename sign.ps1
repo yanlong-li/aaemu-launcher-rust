@@ -1,0 +1,1 @@
+signtool "sign" "/f"  "plaa-iis-0325164928.pfx" "/p" "123456" "/fd" "SHA256" "/t" "http://timestamp.digicert.com" "/v" "target/release/Launcher.exe"

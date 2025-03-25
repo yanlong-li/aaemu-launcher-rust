@@ -29,27 +29,5 @@ fn main() {
         res.set("LegalCopyright", "Copyright © 2025 plaa.top"); // 版权信息
         res.set_language(0x0804);
         res.compile().unwrap();
-
-        // 调用 signtool 对 EXE 文件进行签名
-        let status = std::process::Command::new("signtool")
-            .args(&[
-                "sign",
-                "/f",
-                "plaa-iis-0325164928.pfx",
-                "/p",
-                "123456",
-                "/fd",
-                "SHA256",
-                "/t",
-                "http://timestamp.digicert.com",
-                "/v",
-                "target/release/Launcher.exe",
-            ])
-            .status()
-            .expect("签名操作失败");
-
-        if !status.success() {
-            panic!("签名失败");
-        }
     }
 }
