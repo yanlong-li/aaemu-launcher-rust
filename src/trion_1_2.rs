@@ -15,7 +15,6 @@ use windows::Win32::System::Memory::{
 use windows::Win32::System::Threading::{CreateEventW, DETACHED_PROCESS};
 
 use crate::protocol::AuthToken;
-use crate::{MessageActions, SENDER};
 
 const ARCHEAGE: &str = "\\archeage.exe";
 const SUB_DIR: &str = "\\bin32";
@@ -131,22 +130,6 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
 
     let exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
 
-    if !std::path::Path::exists(exe_path.as_ref()) {
-        error!("找不到游戏程序，请将启动器放置在游戏目录。和 game_pak 文件同目录。");
-        if let Some(tx) = SENDER.get() {
-            tx.lock()
-                .await
-                .send(crate::Task::Message(
-                    String::from("系统错误"),
-                    String::from("游戏未安装"),
-                    MessageActions::None,
-                ))
-                .await
-                .ok();
-        };
-        return;
-    }
-
     let _result = std::process::Command::new(exe_path)
         .raw_arg(handle_args)
         .stdin(Stdio::null()) // 分离标准输入
@@ -175,4 +158,18 @@ pub(crate) async fn launch(auth_token: &AuthToken) {
     // } else {
     //     error!("程序启动失败: {:?}", status);
     // }
+}
+
+pub async fn handle_bin_check() -> bool {
+    let root_path = env::current_exe()
+        .expect("获取当前路径失败")
+        .parent()
+        .expect("获取父级目录")
+        .to_str()
+        .expect("转换为字符串失败")
+        .to_string();
+
+    let exe_path = format!("{}{}{}", root_path, SUB_DIR, ARCHEAGE);
+
+    std::path::Path::exists(exe_path.as_ref())
 }

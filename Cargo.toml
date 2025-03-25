@@ -3,6 +3,9 @@ name = "Launcher"
 version = "0.3.0"
 edition = "2021"
 
+[package.metadata.winres]
+manifest = "app.manifest"
+
 [dependencies]
 byteorder = "1.4.3"
 rc4 = "0.1.0"
@@ -34,6 +37,7 @@ features = [
 ]
 [build-dependencies]
 slint-build = "1.10.0"
+winres="*"
 
 [profile.release]
 panic = "abort"

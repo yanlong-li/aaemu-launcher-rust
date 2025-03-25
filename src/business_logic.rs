@@ -1,5 +1,9 @@
 use crate::protocol::AuthToken;
-use crate::{db_check, protocol, regedit, site_link_url, system_config, trion_1_2, MainWindow, MessageActions, State, VERSION};
+use crate::{
+    db_check, protocol, regedit, site_link_url, system_config, trion_1_2, MainWindow,
+    MessageActions, State, SENDER, VERSION,
+};
+use tracing::error;
 
 pub async fn handle(window: &MainWindow) {
     let _ = site_link_url::handle().await;
@@ -32,6 +36,22 @@ pub async fn handle(window: &MainWindow) {
             "当前本本过低，请安装最新版本".into(),
             MessageActions::Exit,
         );
+        return;
+    }
+
+    if !trion_1_2::handle_bin_check().await {
+        error!("找不到游戏程序，请将启动器放置在游戏目录。和 game_pak 文件同目录。");
+        if let Some(tx) = SENDER.get() {
+            tx.lock()
+                .await
+                .send(crate::Task::Message(
+                    String::from("系统错误"),
+                    String::from("未检测到游戏"),
+                    MessageActions::Exit,
+                ))
+                .await
+                .ok();
+        };
         return;
     }
 
