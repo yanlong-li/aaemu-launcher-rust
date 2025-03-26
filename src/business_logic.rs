@@ -6,7 +6,6 @@ use crate::{
 use tracing::error;
 
 pub async fn handle(window: &MainWindow) {
-    let _ = site_link_url::handle().await;
     if !regedit::detecting() {
         uac::handle();
 
@@ -31,6 +30,8 @@ pub async fn handle(window: &MainWindow) {
         return;
     }
     let auth_token = res.unwrap();
+
+    let _ = site_link_url::handle(&auth_token.domain).await;
 
     if !handle_version(auth_token.with_launcher_version).await {
         window.invoke_message(

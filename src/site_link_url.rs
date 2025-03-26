@@ -7,11 +7,7 @@ use windows::Win32::System::Com::{
 };
 use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
 
-pub async fn handle() -> Result<(), Box<dyn std::error::Error>> {
-   handle_test().await
-}
-
-pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn handle(domain: &str) -> Result<(), Box<dyn std::error::Error>> {
     let homepath = std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOMEPATH"))
         .expect("获取用户环境失败 HOMEPATH");
@@ -41,15 +37,21 @@ pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
         let shell_link: IShellLinkW = shell_link.unwrap();
 
         // 使用 HSTRING 包装目标网址
-        let target_url = HSTRING::from("https://plaa.top");
+        let target_url = HSTRING::from(domain);
 
         // 设置目标网址
         shell_link.SetPath(&target_url)?;
 
-        let target_dir = HSTRING::from(env::current_exe().unwrap().parent().unwrap().to_str().unwrap());
+        let target_dir = HSTRING::from(
+            env::current_exe()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_str()
+                .unwrap(),
+        );
         // 设置起始目录
         shell_link.SetWorkingDirectory(&target_dir)?;
-
 
         let current_exe = env::current_exe()?.to_str().unwrap().to_string();
 
@@ -57,7 +59,7 @@ pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
         // 设置图标
         shell_link.SetIconLocation(&target_icon, 0)?;
 
-        let target_name = HSTRING::from("AA");
+        let target_name = HSTRING::from("PLAA");
         // 设置备注
         shell_link.SetDescription(&target_name)?;
 
