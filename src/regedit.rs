@@ -50,7 +50,7 @@ pub fn detecting() -> bool {
     }
 
 
-    return ok;
+    ok
 }
 
 pub fn register() -> bool {

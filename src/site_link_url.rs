@@ -46,7 +46,7 @@ pub async fn handle_test() -> Result<(), Box<dyn std::error::Error>> {
         // 设置目标网址
         shell_link.SetPath(&target_url)?;
 
-        let target_dir = HSTRING::from("d:\\游戏\\aw\\ArcheWorld\\");
+        let target_dir = HSTRING::from(env::current_exe().unwrap().parent().unwrap().to_str().unwrap());
         // 设置起始目录
         shell_link.SetWorkingDirectory(&target_dir)?;
 

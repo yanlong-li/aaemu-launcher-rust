@@ -1,6 +1,6 @@
 use crate::protocol::AuthToken;
 use crate::{
-    db_check, protocol, regedit, site_link_url, system_config, trion_1_2, MainWindow,
+    db_check, protocol, regedit, site_link_url, system_config, trion_1_2, uac, MainWindow,
     MessageActions, State, SENDER, VERSION,
 };
 use tracing::error;
@@ -8,6 +8,8 @@ use tracing::error;
 pub async fn handle(window: &MainWindow) {
     let _ = site_link_url::handle().await;
     if !regedit::detecting() {
+        uac::handle();
+
         if !regedit::register() {
             window.invoke_message(
                 "注册表".into(),

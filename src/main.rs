@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::env;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, OnceLock};
+use std::{env};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
@@ -29,6 +29,8 @@ mod site_link_url;
 mod task;
 
 mod window;
+
+mod uac;
 
 const WEBSITE_URL: &str = "https://plaa.top";
 
